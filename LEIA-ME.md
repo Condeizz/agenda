@@ -14,6 +14,24 @@ tudo fica guardado no próprio aparelho.
 - **Buscar**: procura em compromissos e tarefas.
 - **Ajustes**: tema claro/escuro/automático, tamanho da letra, avisos e cópia de segurança.
 
+### O que acontece sozinho
+
+- **Compromissos que se repetem**: todo dia, dias úteis, toda semana, a cada 2 semanas, todo mês;
+  apagar só um dia ou deste dia em diante. Compromisso de **dia todo**.
+- **Rotinas** (aba Tarefas): uma lista de tarefas que entra no dia com um toque, ou sozinha
+  nos dias da semana marcados.
+- **Tarefa com hora** e aviso na hora.
+- **Resumo da manhã** (aviso no horário escolhido) e **revisão do fim do dia** (aviso, e o Hoje
+  oferece passar o que ficou para amanhã). Uma vez por semana, o resumo lembra da cópia.
+- **Pendências sozinhas para o dia seguinte** (opcional, em Ajustes).
+- **Enviar** o resumo do dia, a semana ou uma tarefa pelo WhatsApp (ou qualquer app).
+- **Convites (.ics)**: importar o convite de reunião que chegou por e-mail; mandar um
+  compromisso daqui como convite.
+- **Pela voz**: o microfone do teclado funciona em todo campo. Endereço que anota sozinho
+  (para um atalho de voz no Android, com o app instalado):
+  `https://condeizz.github.io/agenda/?tarefa=Texto&hora=17:30` (ou `?compromisso=Texto&dia=amanha&hora=14:00`).
+  No iPhone, um atalho da Siri abriria o Safari, que guarda os dados separados do app da tela inicial.
+
 ## Rodar no computador
 
 ```

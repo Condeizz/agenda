@@ -91,6 +91,23 @@ p{margin:0}
 .amanha b{font-variant-numeric:tabular-nums}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 12px}
 .chips button{border:1px solid var(--linha);background:var(--bg);border-radius:99px;padding:6px 12px;font-size:.95rem;font-weight:600;min-height:40px}
+.chips button[aria-pressed="true"]{background:var(--pri);border-color:var(--pri);color:var(--pri-ink)}
+.chips.dias button{min-width:52px}
+.lnk{background:none;border:0;color:var(--pri);font-weight:700;padding:8px 0;min-height:44px;text-decoration:underline;text-underline-offset:3px}
+.linha-lnk{display:flex;gap:4px 18px;flex-wrap:wrap;margin-top:10px}
+.thora{font-variant-numeric:tabular-nums;color:var(--pri)}
+.card.rot{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:0}
+.corpo-rot{flex:1;min-width:0;min-height:48px;background:none;border:0;text-align:left;padding:4px 0;overflow-wrap:anywhere}
+.card.rot .btn{flex:none}
+.btn:disabled{opacity:.6}
+.cfg-hora{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 10px;align-items:center;margin-bottom:12px}
+.cfg-hora .marca{margin:0;font-weight:700}
+.cfg-hora input[type=time]{border:1px solid var(--linha);border-radius:12px;padding:8px 10px;background:var(--bg);min-height:48px;font-size:1.05rem}
+.cfg-hora .mudo{grid-column:1/-1;font-size:.95rem}
+.card .marca{display:flex;align-items:center;gap:10px;min-height:48px;font-weight:600}
+.card .marca input,.cfg-hora .marca input{width:26px;height:26px;margin:0;flex:none}
+code{font-size:.85rem;overflow-wrap:anywhere;word-break:break-all}
+.gaveta .dupla .marca{margin-bottom:12px;font-size:.95rem}
 .toast{display:flex;align-items:center;gap:10px;justify-content:center}
 .toast button{flex:none;background:none;border:2px solid currentColor;border-radius:10px;color:inherit;font-weight:800;padding:4px 12px;min-height:40px}
 .tarefa.feita .tt{text-decoration:line-through;color:var(--mudo)}
