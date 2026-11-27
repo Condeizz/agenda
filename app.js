@@ -152,6 +152,58 @@ function pedidoPeloEndereco() {
   }
 }
 
+/* ───────── caixa de entrada da Siri ─────────
+   O atalho da Siri manda a frase para a caixa (caixa/worker.js, no Cloudflare). Ao abrir, o app busca,
+   entende a frase (fala.js), anota e apaga da caixa. A chave da caixa é criada aqui, no celular. */
+const CAIXA_URL = 'https://agenda-caixa.henriquejobs0304.workers.dev';
+const enderecoCaixa = () => D.cfg.caixaChave ? (D.cfg.caixaUrl || CAIXA_URL) + '/c/' + D.cfg.caixaChave : '';
+function novaChave() { const b = new Uint8Array(30); crypto.getRandomValues(b); return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+let buscandoCaixa = false;
+async function buscarCaixa(avisarVazio) {
+  if (!D.cfg.caixaChave || buscandoCaixa || !navigator.onLine) { if (avisarVazio && !navigator.onLine) toast('Sem internet agora. Busco quando voltar.'); return; }
+  buscandoCaixa = true;
+  try {
+    const r = await fetch(enderecoCaixa(), { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    const itens = await r.json(), feitos = [], nomes = [];
+    D.caixaVistos = D.caixaVistos || {};
+    for (const it of itens.sort((a, b) => a.em - b.em)) {
+      if (!D.caixaVistos[it.id]) {
+        const f = window.interpretarFala(it.texto, it.em);
+        if (f.tipo === 'compromisso') D.eventos.push({ id: uid(), titulo: f.titulo, data: f.data, ini: f.hora, fim: hm(Math.min(1439, minDe(f.hora) + 60)), obs: 'Anotado pela Siri: “' + it.texto + '”', lembrete: 15, rep: 'nao', pula: {} });
+        else D.tarefas.push({ id: uid(), titulo: f.titulo, data: f.data, rep: 'nao', prio: f.prio, feitas: {}, hora: f.hora, aviso: !!f.hora });
+        D.caixaVistos[it.id] = Date.now();
+        nomes.push(f.titulo + ' (' + (relDia(f.data) || curta(f.data)) + (f.hora ? ' ' + f.hora : '') + ')');
+      }
+      feitos.push(it.id);
+    }
+    for (const k in D.caixaVistos) if (Date.now() - D.caixaVistos[k] > 40 * 864e5) delete D.caixaVistos[k];
+    if (nomes.length) { salvar(); render(); toast((nomes.length === 1 ? 'Da Siri: ' : nomes.length + ' anotações da Siri: ') + nomes.join(' · '), null, 6000); }
+    else if (avisarVazio) toast('A caixa está vazia.');
+    if (feitos.length) await fetch(enderecoCaixa() + '/apagar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: feitos }) });
+  } catch (e) { if (avisarVazio) toast('Não consegui falar com a caixa agora.'); }
+  buscandoCaixa = false;
+}
+function siriHtml() {
+  if (!D.cfg.caixaChave) return `<div class="card"><h2>Anotar pela Siri</h2>
+    <p style="margin-bottom:10px">Fale “Ei Siri, anotar na agenda” e diga o que for, como “reunião com o João amanhã às 15h”. Ao abrir a agenda (a partir de 1 minuto depois de falar), ela já estará anotada: com hora e cara de reunião vira compromisso; o resto vira tarefa.</p>
+    <p class="mudo" style="margin-bottom:10px;font-size:.95rem">A frase fica guardada numa caixa de entrada na internet até a agenda buscar (e depois é apagada). Só quem tem a chave da sua caixa consegue ver o que está nela.</p>
+    <button class="btn pri larga" data-criar-caixa>Criar minha caixa de entrada</button></div>`;
+  return `<div class="card"><h2>Anotar pela Siri</h2>
+    <p style="margin-bottom:8px">Endereço da sua caixa (vai no atalho da Siri):</p>
+    <code class="endereco">${esc(enderecoCaixa())}</code>
+    <div class="linha-btns" style="margin-top:10px"><button class="btn pri" data-copiar-caixa>Copiar endereço</button><button class="btn" data-buscar-caixa>Buscar agora</button></div>
+    <details class="passos"><summary>Como montar o atalho no iPhone</summary><ol>
+      <li>Toque em <b>Copiar endereço</b>, aqui em cima.</li>
+      <li>Abra o app <b>Atalhos</b> › <b>+</b> (novo atalho). Dê o nome <b>Anotar na agenda</b> (é o que você vai falar para a Siri).</li>
+      <li>Toque em <b>Adicionar Ação</b>, procure <b>Ditar Texto</b> e adicione. Em “Mostrar Mais”, escolha o idioma <b>Português (Brasil)</b>.</li>
+      <li>Adicione a ação <b>Obter Conteúdo do URL</b>. No lugar do URL, <b>cole o endereço</b>. Toque em “Mostrar Mais”: Método <b>POST</b>; Corpo da Solicitação <b>Texto</b>; no campo do texto, toque e escolha a variável <b>Texto Ditado</b>.</li>
+      <li>Adicione a ação <b>Falar Texto</b> com a variável <b>Conteúdo do URL</b> (a Siri responde “Anotado: …”).</li>
+      <li>Pronto. Diga <b>“Ei Siri, anotar na agenda”</b>, espere ela ouvir e fale.</li>
+    </ol><p class="mudo">No Android, o mesmo endereço funciona num atalho do app “HTTP Shortcuts” ou de uma rotina do Google Assistente (POST com o texto).</p></details>
+    <button class="lnk" data-trocar-caixa>Trocar a chave (o atalho antigo para de funcionar)</button></div>`;
+}
+
 /* ───────── estado da tela ───────── */
 let aba = 'hoje', dataSel = hoje(), modoAgenda = 'dia', textoBusca = '';
 const TITULOS = { hoje: 'Hoje', agenda: 'Agenda', tarefas: 'Tarefas', buscar: 'Buscar', ajustes: 'Ajustes' };
@@ -339,7 +391,7 @@ function telaAjustes() {
     <div class="linha-btns"><button class="btn pri" data-exportar>Salvar cópia</button><button class="btn" data-importar>Restaurar cópia</button></div></div>
   <div class="card"><h2>Convites de calendário</h2><p style="margin-bottom:10px">Recebeu um convite de reunião (arquivo .ics) por e-mail ou WhatsApp? Salve o arquivo e traga para cá. Para mandar um compromisso daqui, abra-o e toque em “Enviar convite”.</p>
     <button class="btn larga" data-importar-ics>Importar convite</button></div>
-  <div class="card"><h2>Pela voz</h2><p class="mudo">Em qualquer campo, toque no microfone do teclado e dite. Para anotar sem abrir o app (Android, com o app instalado), um atalho de voz pode abrir:<br><code>${esc(location.origin + location.pathname)}?tarefa=Ligar%20para%20o%20contador</code></p></div>
+  ${siriHtml()}
   <div class="card"><h2>Aparência</h2><p class="mudo" style="margin-bottom:8px">Tema</p>
     <div class="opcoes">${op('tema', 'auto', 'Automático')}${op('tema', 'claro', 'Claro')}${op('tema', 'escuro', 'Escuro')}</div>
     <p class="mudo" style="margin:12px 0 8px">Tamanho da letra</p>
@@ -377,7 +429,12 @@ function ligarAvisos() {
 function armar(b, texto, acao) {
   b.onclick = () => { if (b.dataset.armado) { fechar(); acao(); return; } b.dataset.armado = 1; const antes = b.textContent; b.textContent = texto; setTimeout(() => { if (b.isConnected) { delete b.dataset.armado; b.textContent = antes; } }, 4000); };
 }
-const tituloCampo = (v, ph) => `<textarea id="f-t" rows="1" maxlength="100" placeholder="${ph}">${esc(v)}</textarea>`;
+function armarSolto(b, texto, acao) {
+  if (b.dataset.armado) { delete b.dataset.armado; acao(); return; }
+  b.dataset.armado = 1; const antes = b.textContent; b.textContent = texto;
+  setTimeout(() => { if (b.isConnected) { delete b.dataset.armado; b.textContent = antes; } }, 4000);
+}
+const tituloCampo =(v, ph) => `<textarea id="f-t" rows="1" maxlength="100" placeholder="${ph}">${esc(v)}</textarea>`;
 function ligaTitulo(g) {
   const tI = g.querySelector('#f-t'), cresce = () => { tI.style.height = 'auto'; tI.style.height = tI.scrollHeight + 2 + 'px'; };
   tI.oninput = cresce; tI.onkeydown = k => { if (k.key === 'Enter') k.preventDefault(); }; setTimeout(cresce, 0);
@@ -641,6 +698,10 @@ document.addEventListener('click', ev => {
   if (d.letra) { D.cfg.letra = Number(d.letra); gravar(); aplicaVisual(); return render(); }
   if ('ligarAviso' in d) return ligarAvisos();
   if ('testeAviso' in d) return mostrarAviso('Teste da agenda', 'É assim que o aviso aparece.', 'teste');
+  if ('criarCaixa' in d) { D.cfg.caixaChave = novaChave(); salvar(); render(); toast('Caixa criada. Agora copie o endereço e monte o atalho.'); const p = $('details.passos'); if (p) p.open = true; return; }
+  if ('trocarCaixa' in d) { armarSolto(el, 'Toque de novo para trocar', () => { D.cfg.caixaChave = novaChave(); salvar(); render(); toast('Chave trocada. Cole o endereço novo no atalho.'); }); return; }
+  if ('copiarCaixa' in d) { navigator.clipboard.writeText(enderecoCaixa()).then(() => toast('Endereço copiado'), () => toast('Não consegui copiar; toque e segure o endereço para copiar.')); return; }
+  if ('buscarCaixa' in d) return buscarCaixa(true);
   if ('exportar' in d) return exportar();
   if ('importar' in d) return $('#arq').click();
   if ('importarIcs' in d) { let i = $('#arq-ics'); if (!i) { i = document.createElement('input'); i.type = 'file'; i.id = 'arq-ics'; i.accept = '.ics,text/calendar'; i.hidden = true; document.body.append(i); } return i.click(); }
@@ -804,12 +865,14 @@ setInterval(() => {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (hoje() !== ultimoDia) { if (dataSel === ultimoDia) dataSel = hoje(); ultimoDia = hoje(); rodarDia(); }
-  agendarLembretes();
+  agendarLembretes(); buscarCaixa();
   if (!$('#gaveta') && aba === 'hoje' && document.activeElement?.id !== 'notas') render();
 });
 
 /* ───────── início ───────── */
-aplicaVisual(); rodarDia(); render(); agendarLembretes(); pedidoPeloEndereco();
+aplicaVisual(); rodarDia(); render(); agendarLembretes(); pedidoPeloEndereco(); buscarCaixa();
+addEventListener('online', () => buscarCaixa());
+setInterval(() => { if (document.visibilityState === 'visible') buscarCaixa(); }, 120000);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
   navigator.serviceWorker.register('sw.js').catch(() => { });
 }

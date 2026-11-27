@@ -1,0 +1,7 @@
+name = "agenda-caixa"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+[[kv_namespaces]]
+binding = "CAIXA"
+id = "4ff246ca1fff493eaec41bdbd52544cc"
