@@ -283,10 +283,9 @@ function telaHoje() {
   let h = `<section style="margin:4px 0 12px"><p class="sauda">${saudacao()}</p><h2>${esc(nomeData(s, true))}</h2>
     <p class="mudo">${plural(faltam.length, 'compromisso pela frente', 'compromissos pela frente')} · ${ts.length ? `${nf} de ${plural(ts.length, 'tarefa feita', 'tarefas feitas')}` : 'nenhuma tarefa'}</p>
     <button class="lnk" data-enviar="dia" data-dia="${s}">Enviar o resumo do dia</button></section>`;
-  h += revisaoHtml(s) + copiaHtml();
+  h += cartaoAgora(ev, now) + revisaoHtml(s) + copiaHtml();
   if (D.eventos.some(e => e.lembrete != null) && 'Notification' in window && Notification.permission === 'default')
     h += `<div class="aviso-box">Os avisos estão desligados. <button class="btn peq" data-ligar-aviso style="margin-top:6px">Ligar avisos</button></div>`;
-  h += cartaoAgora(ev, now);
   h += `<div class="linha-btns" style="margin-bottom:6px"><button class="btn" data-novo-ev>+ Compromisso</button><button class="btn" data-novo-tf>+ Tarefa</button></div>`;
   h += `<h3>Compromissos de hoje</h3>` + (ev.length ? `<div class="lista">${ev.map(e => itemEvento(e, now)).join('')}</div>` : '<p class="vazio">Nada marcado para hoje.</p>');
   h += `<h3>Tarefas de hoje</h3>` + (ts.length ? `<div class="lista">${ts.map(t => itemTarefa(t, s)).join('')}</div>` : '<p class="vazio">Nenhuma tarefa para hoje.</p>') + rapido(s, 'Nova tarefa para hoje');
@@ -839,7 +838,7 @@ function aplicaVisual() {
   if (D.cfg.tema === 'auto') r.removeAttribute('data-tema'); else r.setAttribute('data-tema', D.cfg.tema);
   r.style.fontSize = (D.cfg.letra || 100) + '%';
   const escuro = D.cfg.tema === 'escuro' || (D.cfg.tema === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  $('meta[name=theme-color]').setAttribute('content', escuro ? '#0E1116' : '#F4F6FA');
+  $('meta[name=theme-color]').setAttribute('content', escuro ? '#0C0E13' : '#F3F4F8');
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', aplicaVisual);
 function toast(t, botao, ms) {

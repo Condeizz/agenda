@@ -17,7 +17,7 @@ function bloco(tipo, dados) {
 function png(N) {
   const px = Buffer.alloc(N * N * 3);
   const put = (x, y, [r, g, b]) => { const i = (y * N + x) * 3; px[i] = r; px[i + 1] = g; px[i + 2] = b; };
-  const AZUL = [31, 95, 214], ESC = [22, 66, 160], BR = [255, 255, 255], CL = [214, 228, 252], VERDE = [20, 160, 80];
+  const AZUL = [53, 87, 232], ESC = [36, 58, 170], BR = [255, 255, 255], CL = [214, 228, 252], VERDE = [20, 160, 80];
   const ret = (x0, y0, x1, y1, r, cor) => {
     for (let y = Math.round(y0 * N); y < Math.round(y1 * N); y++) for (let x = Math.round(x0 * N); x < Math.round(x1 * N); x++) {
       const rr = r * N, cx = Math.min(Math.max(x, x0 * N + rr), x1 * N - rr), cy = Math.min(Math.max(y, y0 * N + rr), y1 * N - rr);

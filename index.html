@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Minha Agenda</title>
-<meta name="theme-color" content="#F4F6FA">
+<meta name="theme-color" content="#F3F4F8">
+<link rel="preload" href="fontes/inter.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icones/icone-192.png">
 <link rel="apple-touch-icon" href="icones/icone-180.png">
@@ -13,32 +14,42 @@
 <meta name="apple-mobile-web-app-title" content="Agenda">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
+/* A fonte mora no app (fontes/inter.woff2, licença OFL): funciona sem internet. */
+@font-face{font-family:"Inter";src:url("fontes/inter.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
 :root{
-  --bg:#F4F6FA; --card:#FFFFFF; --card2:#EEF1F6; --ink:#151821; --mudo:#596172;
-  --linha:#DCE1EA; --pri:#1F5FD6; --pri-ink:#FFFFFF; --pri-suave:#E3ECFC;
-  --ok:#14803C; --ok-suave:#DDF3E5; --aviso:#9A5B00; --aviso-suave:#FCEFD7;
-  --perigo:#C62828; --estrela:#B7791F; --sombra:0 1px 3px rgba(20,30,50,.08);
+  --bg:#F3F4F8; --card:#FFFFFF; --card2:#EEF0F6; --ink:#12141C; --mudo:#5A6275;
+  --linha:#E1E4EC; --pri:#3557E8; --pri-ink:#FFFFFF; --pri-suave:#E8EDFF; --pri2:#6A4FE0;
+  --ok:#14844A; --ok-suave:#DCF4E6; --aviso:#9C5800; --aviso-suave:#FFF0D9;
+  --perigo:#CF3434; --estrela:#C98400;
+  --sombra:0 1px 2px rgba(16,24,40,.05),0 4px 12px rgba(16,24,40,.05);
+  --sombra-alta:0 10px 28px rgba(31,52,160,.28);
+  --topo:rgba(243,244,248,.86);
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-tema="claro"]){
-    --bg:#0E1116; --card:#181C24; --card2:#222835; --ink:#EEF1F6; --mudo:#A3ABBA;
-    --linha:#2C3341; --pri:#7AA7FF; --pri-ink:#0B1530; --pri-suave:#1D2A47;
-    --ok:#5BD18A; --ok-suave:#173726; --aviso:#F2B65A; --aviso-suave:#3A2C14;
-    --perigo:#FF8A80; --estrela:#F2C14E; --sombra:none; color-scheme:dark;
+    --bg:#0C0E13; --card:#161A22; --card2:#1E2330; --ink:#F1F3F8; --mudo:#A6AEBF;
+    --linha:#262C39; --pri:#8DA6FF; --pri-ink:#0B1430; --pri-suave:#1B2340; --pri2:#A992FF;
+    --ok:#5FD394; --ok-suave:#15301F; --aviso:#F5B964; --aviso-suave:#36280F;
+    --perigo:#FF8E8E; --estrela:#F5C24E;
+    --sombra:0 1px 0 rgba(255,255,255,.03); --sombra-alta:0 10px 28px rgba(0,0,0,.5);
+    --topo:rgba(12,14,19,.86); color-scheme:dark;
   }
 }
 :root[data-tema="escuro"]{
-  --bg:#0E1116; --card:#181C24; --card2:#222835; --ink:#EEF1F6; --mudo:#A3ABBA;
-  --linha:#2C3341; --pri:#7AA7FF; --pri-ink:#0B1530; --pri-suave:#1D2A47;
-  --ok:#5BD18A; --ok-suave:#173726; --aviso:#F2B65A; --aviso-suave:#3A2C14;
-  --perigo:#FF8A80; --estrela:#F2C14E; --sombra:none; color-scheme:dark;
+  --bg:#0C0E13; --card:#161A22; --card2:#1E2330; --ink:#F1F3F8; --mudo:#A6AEBF;
+  --linha:#262C39; --pri:#8DA6FF; --pri-ink:#0B1430; --pri-suave:#1B2340; --pri2:#A992FF;
+  --ok:#5FD394; --ok-suave:#15301F; --aviso:#F5B964; --aviso-suave:#36280F;
+  --perigo:#FF8E8E; --estrela:#F5C24E;
+  --sombra:0 1px 0 rgba(255,255,255,.03); --sombra-alta:0 10px 28px rgba(0,0,0,.5);
+  --topo:rgba(12,14,19,.86); color-scheme:dark;
 }
 *{box-sizing:border-box}
 html{font-size:100%;-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);
-  font:400 1.125rem/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-  overflow-x:hidden}
+  font:400 1.125rem/1.5 "Inter",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  font-feature-settings:"cv11","ss03";-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 [hidden]{display:none!important}
@@ -171,6 +182,94 @@ details.passos li{margin-bottom:8px}
   background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 16px;font-weight:600;text-align:center}
 .aviso-box{background:var(--aviso-suave);color:var(--aviso);border-radius:12px;padding:10px 12px;font-weight:600;margin-bottom:12px}
 .res-tipo{font-size:.8rem;font-weight:800;text-transform:uppercase;color:var(--mudo)}
+
+/* ───────── acabamento: tipografia, cartões, movimento ───────── */
+h1,h2,.tit,.dn{letter-spacing:-.02em}
+header.topo{background:var(--topo);-webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px);padding-bottom:10px}
+header.topo h1{font-size:1.75rem;font-weight:800}
+h2{font-size:1.35rem;font-weight:750}
+h3{font-size:.82rem;font-weight:700;letter-spacing:.08em;margin:24px 2px 10px}
+.sauda{font-weight:600;color:var(--pri)}
+section > h2{font-size:1.55rem;line-height:1.2;margin:2px 0 4px}
+.hora,.thora,.dia .ev b,.amanha b,.navdata .meio,.agora p{font-variant-numeric:tabular-nums}
+
+.card,.item,.tarefa,.dia,.amanha{border-radius:18px;border-color:var(--linha);box-shadow:var(--sombra)}
+.card{padding:16px 18px}
+.lista{gap:10px}
+
+/* "a seguir": o cartão de destaque do dia */
+.card.agora{border:0;color:#fff;background:linear-gradient(135deg,var(--pri) 0%,var(--pri2) 100%);box-shadow:var(--sombra-alta);padding:18px 20px}
+:root[data-tema="escuro"] .card.agora{background:linear-gradient(135deg,#2E44B8 0%,#5B3FC4 100%)}
+@media (prefers-color-scheme:dark){:root:not([data-tema="claro"]) .card.agora{background:linear-gradient(135deg,#2E44B8 0%,#5B3FC4 100%)}}
+.card.agora .rot{color:rgba(255,255,255,.82);font-size:.78rem;letter-spacing:.1em}
+.card.agora .tit{font-size:1.45rem;font-weight:800;margin:4px 0 2px}
+.card.agora p:not(.rot):not(.tit){color:rgba(255,255,255,.9);font-weight:500}
+
+/* compromissos: uma faixa de cor à esquerda diz o estado */
+.item{position:relative;overflow:hidden;padding:14px 16px 14px 20px}
+.item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--pri);opacity:.85}
+.item.passou::before{background:var(--mudo);opacity:.35}
+.item.atual{border-width:1px;border-color:var(--pri);box-shadow:0 0 0 2px var(--pri-suave),var(--sombra)}
+.item .hora{font-size:1.05rem;font-weight:750;color:var(--ink);min-width:3.6em}
+.item .tt{font-weight:650;line-height:1.35}
+.item .ob{margin-top:2px}
+.etq{font-weight:600;font-size:.78rem;padding:2px 9px;background:var(--card2)}
+.etq.imp{background:var(--pri);color:var(--pri-ink)}
+
+/* tarefas: caixinha redonda, que enche de verde */
+.tarefa{padding:4px 12px 4px 4px;gap:6px}
+.chk i{width:28px;height:28px;border-radius:50%;border:2.5px solid #A3AABA;transition:background .18s,border-color .18s,transform .18s}
+.chk[aria-pressed="true"] i{transform:scale(1.04)}
+.chk[aria-pressed="true"] i::after{width:11px;height:6px}
+.tarefa .tt{font-weight:500;line-height:1.35}
+.tarefa.feita{background:var(--card2);box-shadow:none}
+.thora{font-weight:700;margin-right:2px}
+.estrela{font-size:1.05em}
+
+/* botões e campos */
+.btn{border-radius:14px;font-weight:650;transition:transform .12s ease,box-shadow .12s ease,background .15s}
+.btn.pri{box-shadow:0 2px 8px rgba(53,87,232,.28)}
+.btn:active,.item:active,.tarefa .corpo:active,.dia:active,.amanha:active,.chips button:active,.seta:active,.fab:active,nav.abas button:active,.card.agora:active{transform:scale(.97)}
+.item,.dia,.amanha,.card.agora{transition:transform .12s ease}
+.lnk{text-decoration:none;font-weight:650;display:inline-flex;align-items:center;gap:6px}
+.lnk::after{content:"›";font-size:1.25em;line-height:1}
+input,select,textarea{transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--pri)!important;box-shadow:0 0 0 4px var(--pri-suave)}
+button:focus-visible{outline:3px solid var(--pri);outline-offset:2px}
+.rapido input,.busca,textarea.notas{border-radius:14px;background:var(--card);box-shadow:var(--sombra)}
+.busca{padding:15px 16px 15px 46px;background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%238891A5' stroke-width='2.2' stroke-linecap='round' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4-4'/%3E%3C/svg%3E") no-repeat 14px center}
+.seg{border-radius:14px;padding:4px}
+.seg button{border-radius:11px;transition:background .15s,color .15s}
+.navdata .seta{border-radius:14px;box-shadow:var(--sombra);color:var(--pri);font-weight:600}
+.navdata .meio{font-size:1.1rem;font-weight:750}
+.navdata .meio small{font-weight:600}
+.chips button{background:var(--card);font-weight:600}
+.dia{padding:12px 16px}
+.dia.hj{border-width:1px;box-shadow:0 0 0 2px var(--pri-suave),var(--sombra)}
+.dia .dn{display:block;margin-bottom:2px}
+.amanha{background:var(--card);border:1px solid var(--linha)}
+.pend{border-color:var(--linha);box-shadow:inset 4px 0 0 var(--aviso),var(--sombra)}
+.aviso-box{border-radius:14px}
+.vazio{padding:18px 4px;font-size:1rem}
+
+/* barra de baixo: a aba ativa ganha uma pílula */
+nav.abas{background:var(--topo);-webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px)}
+nav.abas button{padding:6px 2px 6px;font-size:.75rem;gap:3px}
+nav.abas button svg{width:44px;height:30px;padding:3px 9px;border-radius:99px;transition:background .18s,color .18s;box-sizing:border-box}
+nav.abas button[aria-current="page"]{color:var(--pri);font-weight:700}
+nav.abas button[aria-current="page"] svg{background:var(--pri-suave)}
+
+.fab{border-radius:20px;height:58px;padding:0 22px;box-shadow:var(--sombra-alta);font-weight:750;background:linear-gradient(135deg,var(--pri),var(--pri2))}
+
+/* gaveta e aviso entram deslizando */
+.veu{-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);animation:aparece .2s ease}
+.gaveta{border-radius:24px 24px 0 0;padding-top:26px;box-shadow:0 -10px 40px rgba(0,0,0,.18);animation:sobe .28s cubic-bezier(.2,.8,.2,1)}
+.gaveta::before{content:"";position:absolute;top:9px;left:50%;width:42px;height:5px;margin-left:-21px;border-radius:99px;background:var(--linha)}
+.gaveta h2{font-size:1.4rem}
+.toast{border-radius:16px;box-shadow:var(--sombra-alta);animation:sobe .25s cubic-bezier(.2,.8,.2,1)}
+@keyframes sobe{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes aparece{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
