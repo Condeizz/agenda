@@ -185,11 +185,11 @@ async function buscarCaixa(avisarVazio) {
   buscandoCaixa = false;
 }
 function siriHtml() {
-  if (!D.cfg.caixaChave) return `<div class="card"><h2>Anotar pela Siri</h2>
+  if (!D.cfg.caixaChave) return `<section class="grupo"><h2 class="gh"><span class="chip-ico">${ico('mic')}</span>Anotar pela Siri</h2>
     <p style="margin-bottom:10px">Fale “Ei Siri, anotar na agenda” e diga o que for, como “reunião com o João amanhã às 15h”. Ao abrir a agenda (a partir de 1 minuto depois de falar), ela já estará anotada: com hora e cara de reunião vira compromisso; o resto vira tarefa.</p>
     <p class="mudo" style="margin-bottom:10px;font-size:.95rem">A frase fica guardada numa caixa de entrada na internet até a agenda buscar (e depois é apagada). Só quem tem a chave da sua caixa consegue ver o que está nela.</p>
-    <button class="btn pri larga" data-criar-caixa>Criar minha caixa de entrada</button></div>`;
-  return `<div class="card"><h2>Anotar pela Siri</h2>
+    <button class="btn pri larga" data-criar-caixa>Criar minha caixa de entrada</button></section>`;
+  return `<section class="grupo"><h2 class="gh"><span class="chip-ico">${ico('mic')}</span>Anotar pela Siri</h2>
     <p style="margin-bottom:8px">Endereço da sua caixa (vai no atalho da Siri):</p>
     <code class="endereco">${esc(enderecoCaixa())}</code>
     <div class="linha-btns" style="margin-top:10px"><button class="btn pri" data-copiar-caixa>Copiar endereço</button><button class="btn" data-buscar-caixa>Buscar agora</button></div>
@@ -201,7 +201,7 @@ function siriHtml() {
       <li>Adicione a ação <b>Falar Texto</b> com a variável <b>Conteúdo do URL</b> (a Siri responde “Anotado: …”).</li>
       <li>Pronto. Diga <b>“Ei Siri, anotar na agenda”</b>, espere ela ouvir e fale.</li>
     </ol><p class="mudo">No Android, o mesmo endereço funciona num atalho do app “HTTP Shortcuts” ou de uma rotina do Google Assistente (POST com o texto).</p></details>
-    <button class="lnk" data-trocar-caixa>Trocar a chave (o atalho antigo para de funcionar)</button></div>`;
+    <button class="lnk" data-trocar-caixa>Trocar a chave (o atalho antigo para de funcionar)</button></section>`;
 }
 
 /* ───────── estado da tela ───────── */
@@ -287,7 +287,14 @@ const IC = {
   env: '<path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/>',
   rot: '<path d="M4 6h11M4 12h11M4 18h7"/><path d="M17 15l2 2 3-4"/>',
   sol: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
-  lua: '<path d="M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5z"/>'
+  lua: '<path d="M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5z"/>',
+  sino: '<path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>',
+  nuvem: '<path d="M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 10a4 4 0 0 1 0 8z"/><path d="M12 11v6M9.5 14.5L12 17l2.5-2.5"/>',
+  carta: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M4 7l8 6 8-6"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  pincel: '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+  auto: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>'
 };
 const ico = (k, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`;
 function anelHtml(feitas, total) {
@@ -306,10 +313,12 @@ function faixaSemana(s) {
   }
   return h + '</div>';
 }
-function linhaDoDia(ev, now) {
-  if (!ev.length) return `<div class="vazio-vis">${ico('sol', 'grande')}<p>Agenda livre hoje.</p><button class="btn peq" data-novo-ev>Marcar compromisso</button></div>`;
+function linhaDoDia(ev, now, dia) {
+  const ehHoje = !dia || dia === hoje();
+  if (!ev.length) return `<div class="vazio-vis">${ico('sol', 'grande')}<p>${ehHoje ? 'Agenda livre hoje.' : 'Nada marcado neste dia.'}</p><button class="btn peq" data-novo-ev-dia="${dia || hoje()}">Marcar compromisso</button></div>`;
+  if (!ehHoje) now = dia < hoje() ? 1441 : -1;   /* dia que já passou: tudo apagado; dia que vem: nada apagado e sem "agora" */
   const todos = ev.filter(e => !comHora(e)), tm = ev.filter(comHora);
-  let h = '<div class="linha-tempo">', marcou = false;
+  let h = '<div class="linha-tempo">', marcou = !ehHoje;
   for (const e of todos) h += `<div class="tl-it">${itemEvento(e, now)}</div>`;
   tm.forEach((e, i) => {
     if (!marcou && minDe(e.ini) > now && (i > 0 || todos.length)) { h += `<div class="tl-agora"><span>Agora · ${hm(now)}</span></div>`; marcou = true; }
@@ -350,29 +359,32 @@ function navData(passo) {
   if (passo === 7) { const ini = inicioSemana(s), fim = soma(ini, 6); meio = `${curta(ini)} a ${curta(fim)}`; }
   else { const d = deIso(s); meio = DIAS[d.getDay()] + ', ' + d.getDate() + ' ' + MESES[d.getMonth()].slice(0, 3); }
   const rel = passo === 7 ? (inicioSemana(hoje()) === inicioSemana(s) ? 'esta semana' : 'voltar a hoje') : (relDia(s) || 'voltar a hoje');
-  return `<div class="navdata"><button class="seta" data-mover="-${passo}" aria-label="Anterior">‹</button>
+  const seta = d => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+  return `<div class="navdata"><button class="seta" data-mover="-${passo}" aria-label="Anterior">${seta('M15 5l-7 7 7 7')}</button>
     <button class="meio" data-irhoje>${esc(meio)}<small>${esc(rel)}</small></button>
-    <button class="seta" data-mover="${passo}" aria-label="Próximo">›</button></div>`;
+    <button class="seta" data-mover="${passo}" aria-label="Próximo">${seta('M9 5l7 7-7 7')}</button></div>`;
 }
+const linksRodape = links => `<div class="rodape-links">${links.map(([attrs, icone, txt]) => `<button class="pilula" ${attrs}>${ico(icone, 'peq')} ${txt}</button>`).join('')}</div>`;
 function telaAgenda() {
   let h = `<div class="seg" role="group" aria-label="Ver"><button data-modo="dia" aria-pressed="${modoAgenda === 'dia'}">Dia</button><button data-modo="semana" aria-pressed="${modoAgenda === 'semana'}">Semana</button></div>`;
   if (modoAgenda === 'dia') {
     const ev = eventosDo(dataSel), nt = tarefasDo(dataSel).length;
     h += navData(1);
-    h += ev.length ? `<div class="lista">${ev.map(e => itemEvento(e, agoraMin())).join('')}</div>` : '<p class="vazio">Nada marcado neste dia.</p>';
-    if (nt) h += `<p style="margin-top:14px"><button class="btn larga" data-vertarefas>${plural(nt, 'tarefa', 'tarefas')} neste dia ›</button></p>`;
-    h += `<div class="linha-lnk"><button class="lnk" data-enviar="dia" data-dia="${dataSel}">Enviar este dia</button><button class="lnk" data-importar-ics>Importar convite</button></div>`;
+    h += linhaDoDia(ev, agoraMin(), dataSel);
+    if (nt) h += `<button class="faixa-link" data-vertarefas>${ico('ok')}<span>${plural(nt, 'tarefa', 'tarefas')} neste dia</span><b>›</b></button>`;
+    h += linksRodape([[`data-enviar="dia" data-dia="${dataSel}"`, 'env', 'Enviar este dia'], ['data-importar-ics', 'cal', 'Importar convite']]);
   } else {
     h += navData(7);
     const ini = inicioSemana(dataSel), hj = hoje();
     h += '<div class="semana">';
     for (let i = 0; i < 7; i++) {
-      const s = soma(ini, i), ev = eventosDo(s), nt = tarefasDo(s).length;
-      h += `<button class="dia${s === hj ? ' hj' : ''}" data-dia-sel="${s}"><span class="dn">${esc(nomeData(s))}${s === hj ? ' · hoje' : ''}</span>
-        ${ev.map(e => `<span class="ev" style="display:block"><b>${esc(e.ini || 'Dia todo')}</b> ${esc(e.titulo)}</span>`).join('') || '<span class="ev mudo" style="display:block">Livre</span>'}
-        ${nt ? `<span class="etq">${plural(nt, 'tarefa', 'tarefas')}</span>` : ''}</button>`;
+      const s = soma(ini, i), ev = eventosDo(s), nt = tarefasDo(s).length, d = deIso(s);
+      h += `<button class="dia${s === hj ? ' hj' : ''}${s < hj ? ' ant' : ''}" data-dia-sel="${s}">
+        <span class="dia-data"><small>${DIAS_CURTO[d.getDay()]}</small><b>${d.getDate()}</b></span>
+        <span class="dia-corpo">${ev.length ? ev.slice(0, 4).map(e => `<span class="ev"><b>${esc(e.ini || 'Dia todo')}</b> ${esc(e.titulo)}</span>`).join('') + (ev.length > 4 ? `<span class="ev mudo">e mais ${ev.length - 4}</span>` : '') : '<span class="ev livre">Livre</span>'}
+        ${nt ? `<span class="etq">${ico('ok', 'mini')} ${plural(nt, 'tarefa', 'tarefas')}</span>` : ''}</span></button>`;
     }
-    h += `</div><div class="linha-lnk"><button class="lnk" data-enviar="semana" data-dia="${ini}">Enviar a semana</button><button class="lnk" data-importar-ics>Importar convite</button></div>`;
+    h += '</div>' + linksRodape([[`data-enviar="semana" data-dia="${ini}"`, 'env', 'Enviar a semana'], ['data-importar-ics', 'cal', 'Importar convite']]);
   }
   return h;
 }
@@ -381,20 +393,21 @@ function telaAgenda() {
 const DIAS_CURTO = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const diasTexto = ds => !ds || !ds.length ? 'Só quando você puser' : ds.length === 7 ? 'Todo dia' : [1, 2, 3, 4, 5].every(d => ds.includes(d)) && ds.length === 5 ? 'Dias úteis' : 'Sozinha: ' + [1, 2, 3, 4, 5, 6, 0].filter(d => ds.includes(d)).map(d => DIAS_CURTO[d]).join(', ');
 function telaTarefas() {
-  const ts = tarefasDo(dataSel);
+  const ts = tarefasDo(dataSel), nf = ts.filter(t => feita(t, dataSel)).length;
   let h = navData(1);
-  h += ts.length ? `<div class="lista">${ts.map(t => itemTarefa(t, dataSel)).join('')}</div>` : '<p class="vazio">Nenhuma tarefa neste dia.</p>';
+  if (ts.length) h += `<div class="resumo-tf"><div><b>${nf} de ${ts.length}</b><span>${nf === ts.length ? 'tudo feito!' : plural(ts.length - nf, 'falta', 'faltam')}</span></div><div class="barra"><i style="width:${Math.round(nf / ts.length * 100)}%"></i></div></div>`;
+  h += ts.length ? `<div class="lista">${ts.map(t => itemTarefa(t, dataSel)).join('')}</div>` : `<div class="vazio-vis peq">${ico('ok', 'grande')}<p>Nenhuma tarefa neste dia.</p></div>`;
   h += rapido(dataSel, dataSel === hoje() ? 'Nova tarefa para hoje' : 'Nova tarefa para este dia');
-  if (dataSel === hoje()) { const p = pendentes(dataSel); if (p.length) h += `<h3>Ficou pendente</h3>${p.map(itemPendente).join('')}`; }
-  h += `<h3>Rotinas</h3>`;
+  if (dataSel === hoje()) { const p = pendentes(dataSel); if (p.length) h += `<h3>${ico('rel', 'h3i')} Ficou pendente</h3>${p.map(itemPendente).join('')}`; }
+  h += `<h3>${ico('rot', 'h3i')} Rotinas</h3>`;
   h += D.rotinas.length ? `<div class="lista">${D.rotinas.map(r => {
     const ja = D.rotAplic[chaveRot(r, dataSel)];
-    return `<div class="card rot"><button class="corpo-rot" data-rot="${r.id}"><b>${esc(r.nome)}</b><span class="mudo" style="display:block">${plural(r.itens.length, 'tarefa', 'tarefas')} · ${esc(diasTexto(r.dias))}</span></button>
-      <button class="btn peq${ja ? '' : ' pri'}" data-por-rot="${r.id}"${ja ? ' disabled' : ''}>${ja ? 'Já está no dia' : (dataSel === hoje() ? 'Pôr hoje' : 'Pôr neste dia')}</button></div>`;
-  }).join('')}</div>` : '<p class="mudo" style="margin-bottom:8px">Uma rotina é uma lista de tarefas que você repete, como a abertura da loja. Ela entra no dia com um toque, ou sozinha nos dias que você escolher.</p>';
-  h += `<button class="btn larga" data-nova-rot style="margin-top:8px">+ Nova rotina</button>`;
+    return `<div class="card rot"><span class="chip-ico">${ico('rot')}</span><button class="corpo-rot" data-rot="${r.id}"><b>${esc(r.nome)}</b><span class="mudo" style="display:block;font-size:.92rem">${plural(r.itens.length, 'tarefa', 'tarefas')} · ${esc(diasTexto(r.dias))}</span></button>
+      <button class="btn peq${ja ? '' : ' pri'}" data-por-rot="${r.id}"${ja ? ' disabled' : ''}>${ja ? 'No dia ✓' : (dataSel === hoje() ? 'Pôr hoje' : 'Pôr')}</button></div>`;
+  }).join('')}</div>` : `<div class="vazio-vis peq">${ico('rot', 'grande')}<p>Uma rotina é uma lista que se repete, como a abertura da loja. Ela entra no dia com um toque, ou sozinha nos dias escolhidos.</p></div>`;
+  h += `<button class="btn larga tracejado" data-nova-rot style="margin-top:10px">${ico('mais', 'peq')} Nova rotina</button>`;
   const reps = D.tarefas.filter(t => t.rep !== 'nao').sort((a, b) => a.titulo.localeCompare(b.titulo));
-  if (reps.length) h += `<h3>Tarefas que se repetem</h3><div class="lista">${reps.map(t => `<button class="item" data-tf="${t.id}"><span class="corpo"><span class="tt">${t.prio ? '<span class="estrela">★</span> ' : ''}${esc(t.titulo)}</span><span class="etq">${esc(repTexto(t))}</span></span></button>`).join('')}</div>`;
+  if (reps.length) h += `<h3>${ico('rel', 'h3i')} Tarefas que se repetem</h3><div class="lista-agrupada">${reps.map(t => `<button class="linha-item" data-tf="${t.id}"><span class="tt">${t.prio ? '<span class="estrela">★</span> ' : ''}${esc(t.titulo)}</span><small>${esc(repTexto(t))}</small><b>›</b></button>`).join('')}</div>`;
   return h;
 }
 
@@ -403,10 +416,11 @@ const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '
 function telaBuscar() { return `<input class="busca" id="q" type="search" placeholder="Procurar compromissos e tarefas" autocomplete="off" enterkeyhint="search"><div id="res" style="margin-top:12px"></div>`; }
 function mostraBusca() {
   const q = norm(textoBusca.trim()), alvo = $('#res'); if (!alvo) return;
-  if (!q) { alvo.innerHTML = '<p class="vazio">Digite uma palavra: o nome de uma pessoa, um assunto, um lugar.</p>'; return; }
+  const ICB = '<svg class="ico grande" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>';
+  if (!q) { alvo.innerHTML = `<div class="vazio-vis">${ICB}<p>Procure pelo nome de uma pessoa, um assunto ou um lugar.</p></div>`; return; }
   const ev = D.eventos.filter(e => norm(e.titulo + ' ' + e.obs).includes(q)).sort((a, b) => (b.data + b.ini).localeCompare(a.data + a.ini));
   const ts = D.tarefas.filter(t => norm(t.titulo).includes(q));
-  if (!ev.length && !ts.length) { alvo.innerHTML = '<p class="vazio">Nada encontrado.</p>'; return; }
+  if (!ev.length && !ts.length) { alvo.innerHTML = `<div class="vazio-vis">${ICB}<p>Nada encontrado para “${esc(textoBusca.trim())}”.</p></div>`; return; }
   let h = '';
   if (ev.length) h += `<h3>Compromissos</h3><div class="lista">${ev.slice(0, 50).map(e => `<button class="item" data-ev="${e.id}" data-dia="${e.data}"><span class="hora">${esc(curta(e.data))}<small>${esc(e.ini || 'Dia todo')}</small></span><span class="corpo"><span class="tt">${esc(e.titulo)}</span>${e.obs ? `<span class="ob">${esc(e.obs)}</span>` : ''}${repTexto(e) ? `<span class="etq">${esc(repTexto(e))}</span>` : ''}</span></button>`).join('')}</div>`;
   if (ts.length) h += `<h3>Tarefas</h3><div class="lista">${ts.slice(0, 50).map(t => `<button class="item" data-tf="${t.id}"><span class="corpo"><span class="tt">${t.prio ? '<span class="estrela">★</span> ' : ''}${esc(t.titulo)}</span><span class="etq">${esc(t.rep === 'nao' ? curta(t.data) : repTexto(t))}</span></span></button>`).join('')}</div>`;
@@ -423,30 +437,29 @@ function estadoAvisos() {
 }
 function telaAjustes() {
   const a = estadoAvisos(), dias = diasSemCopia();
-  const op = (grupo, val, rot) => `<button class="btn" data-${grupo}="${val}" aria-pressed="${String(D.cfg[grupo]) === String(val)}">${rot}</button>`;
-  const hora = (k, rot, desc) => `<div class="cfg-hora"><label class="marca"><input type="checkbox" data-cfg-liga="${k}"${D.cfg[k] ? ' checked' : ''}> ${rot}</label>
-    <input type="time" data-cfg-hora="${k}" value="${esc(D.cfg[k] || (k === 'manha' ? '07:30' : '18:00'))}"${D.cfg[k] ? '' : ' disabled'} aria-label="Horário: ${rot}"><p class="mudo">${desc}</p></div>`;
-  return `<div class="card"><h2>O dia no automático</h2>
-    ${hora('manha', 'Resumo da manhã', 'Um aviso com os compromissos e as tarefas do dia. Uma vez por semana, ele lembra da cópia de segurança.')}
-    ${hora('noite', 'Revisão do fim do dia', 'Se ficou tarefa por fazer, um aviso, e o Hoje oferece passar tudo para amanhã.')}
-    <label class="marca"><input type="checkbox" data-cfg-auto${D.cfg.autoPassar ? ' checked' : ''}> Pendências vão sozinhas para o dia seguinte</label></div>
-  <div class="card"><h2>Avisos</h2><p style="margin-bottom:10px">${esc(a.txt)}</p>${a.btn}
-    <p class="mudo" style="margin-top:10px;font-size:.95rem">Como o app não tem servidor, quem dá o aviso é o próprio celular: ele chega com o app aberto ou aberto há pouco em segundo plano. Com o celular parado por muito tempo, pode não chegar.</p></div>
-  <div class="card"><h2>Cópia de segurança</h2>
-    <p style="margin-bottom:10px">Seus dados ficam só neste aparelho. Se o celular for trocado, perdido ou o navegador for limpo, eles somem. Guarde uma cópia de vez em quando (no e-mail, no Drive, no WhatsApp para você mesmo).</p>
-    ${dias == null ? '<div class="aviso-box">Você ainda não fez nenhuma cópia.</div>' : dias >= 7 ? `<div class="aviso-box">Última cópia há ${plural(dias, 'dia', 'dias')}.</div>` : `<p class="mudo" style="margin-bottom:10px">Última cópia: ${dias === 0 ? 'hoje' : 'há ' + plural(dias, 'dia', 'dias')}.</p>`}
-    <div class="linha-btns"><button class="btn pri" data-exportar>Salvar cópia</button><button class="btn" data-importar>Restaurar cópia</button></div></div>
-  <div class="card"><h2>Convites de calendário</h2><p style="margin-bottom:10px">Recebeu um convite de reunião (arquivo .ics) por e-mail ou WhatsApp? Salve o arquivo e traga para cá. Para mandar um compromisso daqui, abra-o e toque em “Enviar convite”.</p>
-    <button class="btn larga" data-importar-ics>Importar convite</button></div>
-  ${siriHtml()}
-  <div class="card"><h2>Aparência</h2><p class="mudo" style="margin-bottom:8px">Tema</p>
-    <div class="opcoes">${op('tema', 'auto', 'Automático')}${op('tema', 'claro', 'Claro')}${op('tema', 'escuro', 'Escuro')}</div>
-    <p class="mudo" style="margin:12px 0 8px">Tamanho da letra</p>
-    <div class="opcoes">${op('letra', 100, 'Grande')}${op('letra', 112, 'Maior')}${op('letra', 125, 'Enorme')}</div></div>
-  <div class="card"><h2>Neste aparelho</h2><p class="mudo">${plural(D.eventos.length, 'compromisso', 'compromissos')} · ${plural(D.tarefas.length, 'tarefa', 'tarefas')} · ${plural(D.rotinas.length, 'rotina', 'rotinas')}</p>
-    <p class="mudo" style="margin-top:6px">Versão do app: <span id="versao">${esc((versaoAtual || '').replace('agenda-', '') || '…')}</span>. Ela se atualiza sozinha ao abrir com internet.</p>
-    <button class="lnk" data-procurar-versao>Procurar atualização agora</button></div>
-  <input type="file" id="arq" accept="application/json,.json" hidden><input type="file" id="arq-ics" accept=".ics,text/calendar" hidden>`;
+  const op = (grupo, val, rot) => `<button data-${grupo}="${val}" aria-pressed="${String(D.cfg[grupo]) === String(val)}">${rot}</button>`;
+  const hora = (k, rot, desc) => `<div class="cfg-linha"><label class="cfg-lab"><input type="checkbox" class="sw" data-cfg-liga="${k}"${D.cfg[k] ? ' checked' : ''}><span class="cfg-txt"><b>${rot}</b><small>${desc}</small></span></label>
+    <input type="time" class="cfg-hora-inp" data-cfg-hora="${k}" value="${esc(D.cfg[k] || (k === 'manha' ? '07:30' : '18:00'))}"${D.cfg[k] ? '' : ' disabled'} aria-label="Horário: ${rot}"></div>`;
+  const grupo = (icone, titulo, corpo, cls = '') => `<section class="grupo ${cls}"><h2 class="gh"><span class="chip-ico">${ico(icone)}</span>${titulo}</h2>${corpo}</section>`;
+  return grupo('auto', 'O dia no automático',
+    hora('manha', 'Resumo da manhã', 'Aviso com o dia de hoje') +
+    hora('noite', 'Revisão do fim do dia', 'Se ficou tarefa, oferece passar para amanhã') +
+    `<div class="cfg-linha"><label class="cfg-lab"><input type="checkbox" class="sw" data-cfg-auto${D.cfg.autoPassar ? ' checked' : ''}><span class="cfg-txt"><b>Pendências para hoje</b><small>O que ficou para trás vem sozinho para o dia</small></span></label></div>`)
+  + grupo('sino', 'Avisos', `<p class="cfg-nota">${esc(a.txt)}</p>${a.btn ? `<div class="cfg-acao">${a.btn}</div>` : ''}
+      <p class="cfg-nota mudo">Sem servidor, quem avisa é o próprio celular: o aviso chega com o app aberto ou aberto há pouco. Com o celular parado por muito tempo, pode não chegar.</p>`)
+  + grupo('nuvem', 'Cópia de segurança', `<p class="cfg-nota">Seus dados ficam só neste aparelho. Guarde uma cópia de vez em quando (no e-mail, no Drive ou no WhatsApp para você mesmo).</p>
+      ${dias == null ? '<div class="aviso-box">Você ainda não fez nenhuma cópia.</div>' : dias >= 7 ? `<div class="aviso-box">Última cópia há ${plural(dias, 'dia', 'dias')}.</div>` : `<p class="cfg-nota mudo">Última cópia: ${dias === 0 ? 'hoje' : 'há ' + plural(dias, 'dia', 'dias')}.</p>`}
+      <div class="linha-btns"><button class="btn pri" data-exportar>Salvar cópia</button><button class="btn" data-importar>Restaurar</button></div>`)
+  + grupo('carta', 'Convites de reunião', `<p class="cfg-nota">Recebeu um convite (.ics) por e-mail ou WhatsApp? Salve o arquivo e traga para cá. Para mandar um, abra o compromisso e toque em “Enviar convite”.</p>
+      <button class="btn larga" data-importar-ics>Importar convite</button>`)
+  + siriHtml()
+  + grupo('pincel', 'Aparência', `<p class="cfg-rot">Tema</p><div class="seg">${op('tema', 'auto', 'Auto')}${op('tema', 'claro', 'Claro')}${op('tema', 'escuro', 'Escuro')}</div>
+      <p class="cfg-rot">Tamanho da letra</p><div class="seg">${op('letra', 100, '<span style="font-size:.9em">Aa</span>')}${op('letra', 112, '<span style="font-size:1.05em">Aa</span>')}${op('letra', 125, '<span style="font-size:1.2em">Aa</span>')}</div>`)
+  + grupo('info', 'Sobre', `<div class="lista-agrupada sobre">
+      <div class="linha-item"><span class="tt">Neste aparelho</span><small>${plural(D.eventos.length, 'compromisso', 'compromissos')} · ${plural(D.tarefas.length, 'tarefa', 'tarefas')} · ${plural(D.rotinas.length, 'rotina', 'rotinas')}</small></div>
+      <div class="linha-item"><span class="tt">Versão</span><small id="versao">${esc((versaoAtual || '').replace('agenda-', '') || '…')}</small></div>
+      <button class="linha-item" data-procurar-versao><span class="tt">Procurar atualização</span><small>Ela também acontece sozinha ao abrir</small><b>›</b></button></div>`)
+  + `<input type="file" id="arq" accept="application/json,.json" hidden><input type="file" id="arq-ics" accept=".ics,text/calendar" hidden>`;
 }
 
 const TELAS = { hoje: telaHoje, agenda: telaAgenda, tarefas: telaTarefas, buscar: telaBuscar, ajustes: telaAjustes };
@@ -463,8 +476,11 @@ function abrir(html, ligar) {
   const pri = g.querySelector('input:not([type=checkbox]),select,textarea'); if (pri && !pri.value) setTimeout(() => pri.focus(), 50);
 }
 function tiraGaveta() { $('#veu')?.remove(); $('#gaveta')?.remove(); }
-function fechar() { if (!$('#gaveta')) return; tiraGaveta(); if (history.state && history.state.gaveta) history.back(); }
-addEventListener('popstate', tiraGaveta);
+/* Ao fechar pelo app, voltamos uma entrada do histórico; esse "voltar" chega depois, de forma assíncrona,
+   e não pode fechar uma janela aberta logo em seguida. Por isso ele é marcado para ser ignorado. */
+let ignorarVolta = 0;
+function fechar() { if (!$('#gaveta')) return; tiraGaveta(); if (history.state && history.state.gaveta) { ignorarVolta++; history.back(); } }
+addEventListener('popstate', () => { if (ignorarVolta) { ignorarVolta--; return; } tiraGaveta(); });
 /* toda ação que apaga ou some com algo pode ser desfeita por alguns segundos */
 function desfazivel(msg, fn) {
   const antes = JSON.stringify(D);
@@ -725,6 +741,7 @@ document.addEventListener('click', ev => {
   if (d.aba) return irPara(d.aba);
   if (el.id === 'fab') return aba === 'tarefas' ? formTarefa(null, dataSel) : formEvento(null, dataSel);
   if ('novoEv' in d) return formEvento(null, hoje());
+  if (d.novoEvDia) return formEvento(null, d.novoEvDia);
   if ('novoTf' in d) return formTarefa(null, hoje());
   if (d.ev) return formEvento(d.ev, d.dia);
   if (d.tf) return formTarefa(d.tf);

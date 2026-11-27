@@ -4,7 +4,7 @@
    - Ao abrir com internet, o navegador confere este arquivo. Se a VERSAO mudou, a versão nova é baixada inteira
      por trás, assume o controle e o app recarrega na hora (app.js, "atualização").
    - A VERSAO é calculada por `node ferramentas/versao.mjs` a partir do conteúdo dos arquivos: rode antes de publicar. */
-const VERSAO = 'agenda-023a2da29b';
+const VERSAO = 'agenda-d81503773c';
 const ARQUIVOS = ['./', 'index.html', 'app.js', 'fala.js', 'manifest.webmanifest', 'fontes/inter.woff2', 'icones/icone-180.png', 'icones/icone-192.png', 'icones/icone-512.png'];
 
 self.addEventListener('install', e => {
