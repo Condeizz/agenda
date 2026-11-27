@@ -22,6 +22,11 @@ node ferramentas/servidor.mjs
 
 Abre em http://localhost:4400. O servidor também mostra o endereço na rede (ex.: `http://192.168.0.10:4400`).
 
+## No ar
+
+**https://condeizz.github.io/agenda/** (GitHub Pages, repositório público `Condeizz/agenda`;
+cada `git push` no `main` publica sozinho em cerca de um minuto).
+
 ## Colocar no celular
 
 O app precisa estar num endereço **https** para funcionar sem internet e ser instalado
