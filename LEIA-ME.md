@@ -79,4 +79,4 @@ Para voltar: Ajustes › *Restaurar cópia*. O app avisa quando a última cópia
 ## Ao mudar algum arquivo
 
 Suba a `VERSAO` em `sw.js` (ex.: `agenda-v4`); o celular pega a versão nova na abertura seguinte.
-Ícones: `node ferramentas/icones.mjs`.
+Ícones: desenho em `icones/icone.svg`; os PNG saem com `node ferramentas/icones.mjs` (usa o Edge do Windows).
