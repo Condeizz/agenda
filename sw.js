@@ -1,6 +1,6 @@
 /* Funciona sem internet: abre do que está guardado e, se houver internet, atualiza a cópia
    por trás (a versão nova aparece na próxima abertura). Ao mudar um arquivo, suba a VERSAO. */
-const VERSAO = 'agenda-v3';
+const VERSAO = 'agenda-v5';
 const ARQUIVOS = ['./', 'index.html', 'app.js', 'manifest.webmanifest', 'icones/icone-180.png', 'icones/icone-192.png', 'icones/icone-512.png'];
 
 self.addEventListener('install', e => {

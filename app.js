@@ -74,12 +74,12 @@ function pendentes(s) {
   }
   return r.sort((a, b) => (b.t.prio ? 1 : 0) - (a.t.prio ? 1 : 0) || a.dia.localeCompare(b.dia));
 }
-function marcar(id, dia, valor) {
+function marcarSem(id, dia, valor) {
   const t = D.tarefas.find(x => x.id === id); if (!t) return;
   t.feitas = t.feitas || {};
   if (valor) t.feitas[dia] = valor; else delete t.feitas[dia];
-  salvar();
 }
+function marcar(id, dia, valor) { marcarSem(id, dia, valor); salvar(); }
 
 /* ───────── estado da tela ───────── */
 let aba = 'hoje', dataSel = hoje(), modoAgenda = 'dia', textoBusca = '';
@@ -92,6 +92,7 @@ function render() {
   const fab = $('#fab');
   const f = { agenda: '<span>+</span> Compromisso', tarefas: '<span>+</span> Tarefa' }[aba];
   fab.hidden = !f; if (f) fab.innerHTML = f;
+  document.body.classList.toggle('com-fab', !!f);
   if (aba === 'buscar') { const i = $('#q'); i.value = textoBusca; mostraBusca(); }
 }
 function irPara(a) { aba = a; if (a !== 'agenda' && a !== 'tarefas') dataSel = hoje(); render(); window.scrollTo(0, 0); }
@@ -125,13 +126,20 @@ function cartaoAgora(ev, now) {
   const atual = ev.find(e => now >= minDe(e.ini) && now < fimMin(e));
   const prox = ev.find(e => minDe(e.ini) > now);
   if (!atual && !prox) return `<div class="card agora"><p class="rot">A seguir</p><p class="tit">${ev.length ? 'Os compromissos de hoje já passaram.' : 'Nenhum compromisso hoje.'}</p></div>`;
-  let h = '<div class="card agora">';
+  let h = `<button class="card agora" style="display:block;width:100%;text-align:left" data-ev="${(atual || prox).id}">`;
   if (atual) h += `<p class="rot">Agora</p><p class="tit">${esc(atual.titulo)}</p><p>${esc(atual.ini)}${atual.fim ? ' até ' + esc(atual.fim) : ''}</p>`;
   if (prox) {
     const falta = minDe(prox.ini) - now, txt = falta < 60 ? `em ${falta} min` : `em ${Math.floor(falta / 60)} h${falta % 60 ? ' ' + falta % 60 + ' min' : ''}`;
     h += `${atual ? '<p class="rot" style="margin-top:10px">Depois</p>' : '<p class="rot">A seguir</p>'}<p class="tit">${esc(prox.titulo)}</p><p>${esc(prox.ini)} · ${txt}</p>`;
   }
-  return h + '</div>';
+  return h + '</button>';
+}
+const rapido = (dia, ph) => `<form class="rapido" data-rapido="${dia}"><input name="t" maxlength="100" placeholder="${ph}" enterkeyhint="done" aria-label="Nova tarefa"><button class="btn pri">Adicionar</button></form>`;
+function amanhaHtml(s) {
+  const a = soma(s, 1), ev = eventosDo(a), nt = tarefasDo(a).length;
+  if (!ev.length && !nt) return '';
+  const ev1 = ev[0] ? `<b>${esc(ev[0].ini)}</b> ${esc(ev[0].titulo)}${ev.length > 1 ? ` <span class="mudo">e mais ${ev.length - 1}</span>` : ''}` : 'Nenhum compromisso';
+  return `<h3>Amanhã</h3><button class="amanha" data-dia-sel="${a}"><span style="display:block">${ev1}</span>${nt ? `<span class="mudo">${plural(nt, 'tarefa', 'tarefas')}</span>` : ''}</button>`;
 }
 function telaHoje() {
   const s = hoje(), ev = eventosDo(s), ts = tarefasDo(s), pend = pendentes(s), now = agoraMin();
@@ -140,9 +148,12 @@ function telaHoje() {
     <p class="mudo">${plural(faltam.length, 'compromisso pela frente', 'compromissos pela frente')} · ${ts.length ? `${nf} de ${plural(ts.length, 'tarefa feita', 'tarefas feitas')}` : 'nenhuma tarefa'}</p></section>`;
   h += cartaoAgora(ev, now);
   h += `<div class="linha-btns" style="margin-bottom:6px"><button class="btn" data-novo-ev>+ Compromisso</button><button class="btn" data-novo-tf>+ Tarefa</button></div>`;
+  if (D.eventos.some(e => e.lembrete != null && e.data >= s) && 'Notification' in window && Notification.permission === 'default')
+    h += `<div class="aviso-box" style="margin-top:10px">Os avisos dos compromissos estão desligados. <button class="btn peq" data-ligar-aviso style="margin-top:6px">Ligar avisos</button></div>`;
   h += `<h3>Compromissos de hoje</h3>` + (ev.length ? `<div class="lista">${ev.map(e => itemEvento(e, now)).join('')}</div>` : '<p class="vazio">Nada marcado para hoje.</p>');
-  h += `<h3>Tarefas de hoje</h3>` + (ts.length ? `<div class="lista">${ts.map(t => itemTarefa(t, s)).join('')}</div>` : '<p class="vazio">Nenhuma tarefa para hoje.</p>');
+  h += `<h3>Tarefas de hoje</h3>` + (ts.length ? `<div class="lista">${ts.map(t => itemTarefa(t, s)).join('')}</div>` : '<p class="vazio">Nenhuma tarefa para hoje.</p>') + rapido(s, 'Nova tarefa para hoje');
   if (pend.length) h += `<h3>Ficou pendente</h3>${pend.map(itemPendente).join('')}`;
+  h += amanhaHtml(s);
   h += `<h3>Anotações do dia</h3><textarea class="notas" id="notas" placeholder="Escreva aqui o que precisar lembrar hoje…">${esc(D.notas[s] || '')}</textarea><p class="salvo" id="salvo"></p>`;
   return h;
 }
@@ -152,7 +163,7 @@ function navData(passo) {
   const s = dataSel;
   let meio;
   if (passo === 7) { const ini = inicioSemana(s), fim = soma(ini, 6); meio = `${curta(ini)} a ${curta(fim)}`; }
-  else meio = nomeData(s);
+  else { const d = deIso(s); meio = DIAS[d.getDay()] + ', ' + d.getDate() + ' ' + MESES[d.getMonth()].slice(0, 3); }
   const rel = passo === 7 ? (inicioSemana(hoje()) === inicioSemana(s) ? 'esta semana' : 'voltar a hoje') : (relDia(s) || 'voltar a hoje');
   return `<div class="navdata"><button class="seta" data-mover="-${passo}" aria-label="Anterior">‹</button>
     <button class="meio" data-irhoje>${esc(meio)}<small>${esc(rel)}</small></button>
@@ -185,6 +196,7 @@ function telaTarefas() {
   const ts = tarefasDo(dataSel);
   let h = navData(1);
   h += ts.length ? `<div class="lista">${ts.map(t => itemTarefa(t, dataSel)).join('')}</div>` : '<p class="vazio">Nenhuma tarefa neste dia.</p>';
+  h += rapido(dataSel, dataSel === hoje() ? 'Nova tarefa para hoje' : 'Nova tarefa para este dia');
   if (dataSel === hoje()) { const p = pendentes(dataSel); if (p.length) h += `<h3>Ficou pendente</h3>${p.map(itemPendente).join('')}`; }
   const reps = D.tarefas.filter(t => t.rep !== 'nao').sort((a, b) => a.titulo.localeCompare(b.titulo));
   if (reps.length) h += `<h3>Tarefas que se repetem</h3><div class="lista">${reps.map(t => `<button class="item" data-tf="${t.id}"><span class="corpo"><span class="tt">${t.prio ? '<span class="estrela">★</span> ' : ''}${esc(t.titulo)}</span><span class="etq">${esc(repTexto(t))}</span></span></button>`).join('')}</div>`;
@@ -238,35 +250,63 @@ const TELAS = { hoje: telaHoje, agenda: telaAgenda, tarefas: telaTarefas, buscar
 
 /* ───────── gaveta (formulários) ───────── */
 function abrir(html, ligar) {
-  fechar();
+  const tinha = !!$('#gaveta'); tiraGaveta();
   const veu = document.createElement('div'); veu.className = 'veu'; veu.id = 'veu';
   const g = document.createElement('div'); g.className = 'gaveta'; g.id = 'gaveta'; g.setAttribute('role', 'dialog'); g.setAttribute('aria-modal', 'true');
   g.innerHTML = html; veu.onclick = fechar;
   document.body.append(veu, g);
+  if (!tinha) history.pushState({ gaveta: 1 }, '');   /* o "voltar" do Android fecha a gaveta, não sai do app */
   ligar(g);
   const pri = g.querySelector('input,select,textarea'); if (pri && !pri.value) setTimeout(() => pri.focus(), 50);
 }
-function fechar() { $('#veu')?.remove(); $('#gaveta')?.remove(); }
+function tiraGaveta() { $('#veu')?.remove(); $('#gaveta')?.remove(); }
+function fechar() { if (!$('#gaveta')) return; tiraGaveta(); if (history.state && history.state.gaveta) history.back(); }
+addEventListener('popstate', tiraGaveta);
+/* toda ação que apaga ou some com algo pode ser desfeita por alguns segundos */
+function desfazivel(msg, fn) {
+  const antes = JSON.stringify(D);
+  fn(); salvar(); render();
+  toast(msg, { rot: 'Desfazer', acao: () => { D = JSON.parse(antes); salvar(); render(); toast('Desfeito'); } }, 6000);
+}
+function ligarAvisos() {
+  if (!('Notification' in window)) { irPara('ajustes'); return; }
+  Notification.requestPermission().then(p => {
+    agendarLembretes(); render();
+    toast(p === 'granted' ? 'Avisos ligados' : 'Os avisos não foram permitidos neste aparelho.');
+  });
+}
 function botaoApagar(g, texto, acao) {
   const b = g.querySelector('#f-apagar'); if (!b) return;
-  b.onclick = () => { if (b.dataset.armado) { acao(); fechar(); render(); return; } b.dataset.armado = 1; b.textContent = texto; setTimeout(() => { if (b.isConnected) { delete b.dataset.armado; b.textContent = 'Apagar'; } }, 4000); };
+  b.onclick = () => { if (b.dataset.armado) { fechar(); acao(); return; } b.dataset.armado = 1; b.textContent = texto; setTimeout(() => { if (b.isConnected) { delete b.dataset.armado; b.textContent = 'Apagar'; } }, 4000); };
 }
 function formEvento(id, dia) {
   const e0 = D.eventos.find(x => x.id === id), novo = !e0;
   const e = e0 || { titulo: '', data: dia || dataSel, ini: proxHora(), fim: '', obs: '', lembrete: 15 };
   const L = [['', 'Sem aviso'], [0, 'Na hora'], [5, '5 min antes'], [15, '15 min antes'], [30, '30 min antes'], [60, '1 hora antes'], [1440, '1 dia antes']];
   abrir(`<h2>${novo ? 'Novo compromisso' : 'Editar compromisso'}</h2>
-    <label>O que é<input id="f-t" maxlength="100" value="${esc(e.titulo)}" placeholder="Ex.: Reunião com a equipe"></label>
+    <label>O que é<textarea id="f-t" rows="1" maxlength="100" placeholder="Ex.: Reunião com a equipe">${esc(e.titulo)}</textarea></label>
     <label>Dia<input id="f-d" type="date" value="${e.data}"></label>
+    <div class="chips" aria-label="Atalhos de dia"><button type="button" data-qd="0">Hoje</button><button type="button" data-qd="1">Amanhã</button><button type="button" data-qd="2">${(s => s[0].toUpperCase() + s.slice(1))(DIAS[dow(soma(hoje(), 2))])}</button></div>
     <div class="dupla"><label>Começa<input id="f-i" type="time" value="${esc(e.ini)}"></label><label>Termina<input id="f-f" type="time" value="${esc(e.fim)}"></label></div>
+    <div class="chips" aria-label="Duração"><button type="button" data-dur="30">30 min</button><button type="button" data-dur="60">1 hora</button><button type="button" data-dur="90">1h30</button><button type="button" data-dur="120">2 horas</button></div>
     <label>Avisar<select id="f-l">${L.map(([v, r]) => `<option value="${v}"${String(e.lembrete ?? '') === String(v) ? ' selected' : ''}>${r}</option>`).join('')}</select></label>
     <label>Observação<textarea id="f-o" rows="3" placeholder="Local, pauta, telefone…">${esc(e.obs)}</textarea></label>
     <p class="erro" id="f-err"></p>
-    <div class="acoes">${novo ? '' : '<button class="btn perigo" id="f-apagar">Apagar</button>'}<button class="btn" id="f-nao">Cancelar</button><button class="btn pri" id="f-ok">Salvar</button></div>`, g => {
+    ${novo ? '' : '<button class="btn perigo larga" id="f-apagar">Apagar</button>'}
+    <div class="acoes"><button class="btn" id="f-nao">Cancelar</button><button class="btn pri" id="f-ok">Salvar</button></div>`, g => {
     g.querySelector('#f-nao').onclick = fechar;
-    botaoApagar(g, 'Toque de novo para apagar', () => { D.eventos = D.eventos.filter(x => x.id !== id); salvar(); toast('Compromisso apagado'); });
+    const tI = g.querySelector('#f-t'), dI = g.querySelector('#f-d'), iI = g.querySelector('#f-i'), fI = g.querySelector('#f-f');
+    const cresce = () => { tI.style.height = 'auto'; tI.style.height = tI.scrollHeight + 2 + 'px'; };
+    tI.oninput = cresce; tI.onkeydown = k => { if (k.key === 'Enter') k.preventDefault(); }; setTimeout(cresce, 0);
+    const hm = m => pad(Math.floor(m / 60) % 24) + ':' + pad(m % 60);
+    let iniAntes = iI.value;
+    iI.onchange = () => { if (fI.value && iniAntes && iI.value) { const dur = minDe(fI.value) - minDe(iniAntes); if (dur > 0 && minDe(iI.value) + dur < 1440) fI.value = hm(minDe(iI.value) + dur); } iniAntes = iI.value; };
+    g.querySelectorAll('[data-dur]').forEach(b => b.onclick = () => { if (!iI.value) return; fI.value = hm(Math.min(1439, minDe(iI.value) + Number(b.dataset.dur))); iniAntes = iI.value; });
+    iI.onfocus = () => { iniAntes = iI.value; };
+    g.querySelectorAll('[data-qd]').forEach(b => b.onclick = () => { dI.value = soma(hoje(), Number(b.dataset.qd)); });
+    botaoApagar(g, 'Toque de novo para apagar', () => desfazivel('Compromisso apagado', () => { D.eventos = D.eventos.filter(x => x.id !== id); }));
     g.querySelector('#f-ok').onclick = () => {
-      const t = g.querySelector('#f-t').value.trim(), d = g.querySelector('#f-d').value, i = g.querySelector('#f-i').value, f = g.querySelector('#f-f').value;
+      const t = tI.value.replace(/\s+/g, ' ').trim(), d = g.querySelector('#f-d').value, i = g.querySelector('#f-i').value, f = g.querySelector('#f-f').value;
       const err = g.querySelector('#f-err');
       if (!t) { err.textContent = 'Escreva o que é o compromisso.'; return; }
       if (!d) { err.textContent = 'Escolha o dia.'; return; }
@@ -275,8 +315,9 @@ function formEvento(id, dia) {
       const lv = g.querySelector('#f-l').value;
       const obj = { id: id || uid(), titulo: t, data: d, ini: i, fim: f, obs: g.querySelector('#f-o').value.trim(), lembrete: lv === '' ? null : Number(lv) };
       if (novo) D.eventos.push(obj); else Object.assign(e0, obj);
-      salvar(); fechar(); render(); toast(novo ? 'Compromisso marcado' : 'Compromisso salvo');
-      if (obj.lembrete != null && 'Notification' in window && Notification.permission === 'default') setTimeout(() => toast('Para receber o aviso, ligue os avisos em Ajustes.'), 2600);
+      salvar(); fechar(); render();
+      if (obj.lembrete != null && 'Notification' in window && Notification.permission === 'default') toast(novo ? 'Compromisso marcado. Ligar o aviso?' : 'Salvo. Ligar o aviso?', { rot: 'Ligar', acao: ligarAvisos }, 7000);
+      else toast(novo ? 'Compromisso marcado' : 'Compromisso salvo');
     };
   });
 }
@@ -290,13 +331,14 @@ function formTarefa(id, dia) {
     <label>Repete<select id="f-r">${opRep(t.data)}</select></label>
     <label class="marca"><input id="f-p" type="checkbox"${t.prio ? ' checked' : ''}> Importante (aparece primeiro)</label>
     <p class="erro" id="f-err"></p>
-    <div class="acoes">${novo ? '' : '<button class="btn perigo" id="f-apagar">Apagar</button>'}<button class="btn" id="f-nao">Cancelar</button><button class="btn pri" id="f-ok">Salvar</button></div>`, g => {
+    ${novo ? '' : '<button class="btn perigo larga" id="f-apagar">Apagar</button>'}
+    <div class="acoes"><button class="btn" id="f-nao">Cancelar</button><button class="btn pri" id="f-ok">Salvar</button></div>`, g => {
     const dI = g.querySelector('#f-d'), rI = g.querySelector('#f-r');
     const rotulo = () => { g.querySelector('#rot-d').firstChild.nodeValue = rI.value === 'nao' ? 'Dia' : 'Dia em que começa'; };
     dI.onchange = () => { if (!dI.value) return; const v = rI.value; rI.innerHTML = opRep(dI.value); rI.value = v; };
     rI.onchange = rotulo;
     g.querySelector('#f-nao').onclick = fechar;
-    botaoApagar(g, t0 && t0.rep !== 'nao' ? 'Apagar todas as repetições?' : 'Toque de novo para apagar', () => { D.tarefas = D.tarefas.filter(x => x.id !== id); salvar(); toast('Tarefa apagada'); });
+    botaoApagar(g, t0 && t0.rep !== 'nao' ? 'Apagar todas as repetições?' : 'Toque de novo para apagar', () => desfazivel('Tarefa apagada', () => { D.tarefas = D.tarefas.filter(x => x.id !== id); }));
     g.querySelector('#f-ok').onclick = () => {
       const tt = g.querySelector('#f-t').value.trim(), d = dI.value, err = g.querySelector('#f-err');
       if (!tt) { err.textContent = 'Escreva o que é a tarefa.'; return; }
@@ -319,17 +361,17 @@ document.addEventListener('click', ev => {
   if (d.ev) return formEvento(d.ev);
   if (d.tf) return formTarefa(d.tf);
   if (d.chk) { marcar(d.chk, d.dia, el.getAttribute('aria-pressed') !== 'true' ? 1 : 0); return render(); }
-  if (d.pfeita) { marcar(d.pfeita, d.dia, 1); toast('Marcada como feita'); return render(); }
-  if (d.ppula) { marcar(d.ppula, d.dia, 'pulada'); return render(); }
-  if (d.phoje) { const t = D.tarefas.find(x => x.id === d.phoje); if (t) { t.data = hoje(); salvar(); toast('Passou para hoje'); } return render(); }
+  if (d.pfeita) return desfazivel('Marcada como feita', () => marcarSem(d.pfeita, d.dia, 1));
+  if (d.ppula) return desfazivel('Deixada pra lá', () => marcarSem(d.ppula, d.dia, 'pulada'));
+  if (d.phoje) return desfazivel('Passou para hoje', () => { const t = D.tarefas.find(x => x.id === d.phoje); if (t) t.data = hoje(); });
   if (d.mover) { dataSel = soma(dataSel, Number(d.mover)); return render(); }
   if ('irhoje' in d) { dataSel = hoje(); return render(); }
   if (d.modo) { modoAgenda = d.modo; return render(); }
-  if (d.diaSel) { dataSel = d.diaSel; modoAgenda = 'dia'; return render(); }
+  if (d.diaSel) { dataSel = d.diaSel; modoAgenda = 'dia'; aba = 'agenda'; render(); return scrollTo(0, 0); }
   if ('vertarefas' in d) { aba = 'tarefas'; return render(); }
   if (d.tema) { D.cfg.tema = d.tema; gravar(); aplicaVisual(); return render(); }
   if (d.letra) { D.cfg.letra = Number(d.letra); gravar(); aplicaVisual(); return render(); }
-  if ('ligarAviso' in d) { Notification.requestPermission().then(() => { agendarLembretes(); render(); }); return; }
+  if ('ligarAviso' in d) return ligarAvisos();
   if ('testeAviso' in d) return mostrarAviso('Teste da agenda', 'É assim que o aviso do compromisso aparece.', 'teste');
   if ('exportar' in d) return exportar();
   if ('importar' in d) return $('#arq').click();
@@ -342,6 +384,24 @@ document.addEventListener('input', ev => {
     window._tn = setTimeout(() => { gravar(); const e = $('#salvo'); if (e) e.textContent = 'Salvo neste aparelho'; }, 400);
   }
 });
+document.addEventListener('submit', ev => {
+  const f = ev.target.closest('[data-rapido]'); if (!f) return;
+  ev.preventDefault();
+  const i = f.querySelector('input'), t = i.value.replace(/\s+/g, ' ').trim();
+  if (!t) { i.focus(); return; }
+  D.tarefas.push({ id: uid(), titulo: t, data: f.dataset.rapido, rep: 'nao', prio: false, feitas: {} });
+  salvar(); const y = scrollY; render(); scrollTo(0, y);
+  const novo = document.querySelector(`[data-rapido="${f.dataset.rapido}"] input`); if (novo) novo.focus();  /* dá para emendar a próxima */
+  toast('Tarefa adicionada');
+});
+/* arrastar o dedo para o lado troca o dia (ou a semana) na Agenda e em Tarefas */
+let toque0 = null;
+document.addEventListener('touchstart', e => { toque0 = (aba === 'agenda' || aba === 'tarefas') && !$('#gaveta') && e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null; }, { passive: true });
+document.addEventListener('touchend', e => {
+  if (!toque0) return; const t = e.changedTouches[0], dx = t.clientX - toque0.x, dy = t.clientY - toque0.y; toque0 = null;
+  if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
+  dataSel = soma(dataSel, (dx < 0 ? 1 : -1) * (aba === 'agenda' && modoAgenda === 'semana' ? 7 : 1)); render();
+}, { passive: true });
 document.addEventListener('change', ev => { if (ev.target.id === 'arq') importar(ev.target.files[0]); });
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape') fechar(); });
 
@@ -420,10 +480,12 @@ function aplicaVisual() {
   $('meta[name=theme-color]').setAttribute('content', escuro ? '#0E1116' : '#F4F6FA');
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', aplicaVisual);
-function toast(t) {
+function toast(t, botao, ms) {
   $('.toast')?.remove();
-  const el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status'); el.textContent = t;
-  document.body.append(el); setTimeout(() => el.remove(), 2600);
+  const el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status');
+  const s = document.createElement('span'); s.textContent = t; el.append(s);
+  if (botao) { const b = document.createElement('button'); b.textContent = botao.rot; b.onclick = () => { el.remove(); botao.acao(); }; el.append(b); }
+  document.body.append(el); setTimeout(() => el.remove(), ms || 2600);
 }
 
 /* a tela de hoje se atualiza sozinha a cada minuto (o "agora" anda), sem atrapalhar quem está digitando */
