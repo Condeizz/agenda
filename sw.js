@@ -4,7 +4,7 @@
    - Ao abrir com internet, o navegador confere este arquivo. Se a VERSAO mudou, a versão nova é baixada inteira
      por trás, assume o controle e o app recarrega na hora (app.js, "atualização").
    - A VERSAO é calculada por `node ferramentas/versao.mjs` a partir do conteúdo dos arquivos: rode antes de publicar. */
-const VERSAO = 'agenda-e7d2254ed8';
+const VERSAO = 'agenda-7f23877f23';
 const ARQUIVOS = ['./', 'index.html', 'app.js', 'fala.js', 'manifest.webmanifest', 'fontes/inter.woff2', 'icones/icone-180.png', 'icones/icone-192.png', 'icones/icone-512.png'];
 
 self.addEventListener('install', e => {
@@ -23,6 +23,11 @@ self.addEventListener('fetch', e => {
     try { return await fetch(req); }
     catch (err) { return req.mode === 'navigate' ? (await c.match('index.html')) : Response.error(); }
   }));
+});
+/* aviso que chega do servidor com o app fechado (caixa/avisos.js) */
+self.addEventListener('push', e => {
+  let d = {}; try { d = e.data ? e.data.json() : {}; } catch (x) { }
+  e.waitUntil(self.registration.showNotification(d.titulo || 'Agenda', { body: d.corpo || '', tag: d.tag || undefined, icon: 'icones/icone-192.png', badge: 'icones/icone-192.png', vibrate: [200, 100, 200] }));
 });
 self.addEventListener('message', e => { if (e.data === 'versao' && e.source) e.source.postMessage({ versao: VERSAO }); });
 self.addEventListener('notificationclick', e => {

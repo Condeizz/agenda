@@ -22,9 +22,20 @@ async function idDaCaixa(chave) {
   return [...new Uint8Array(h)].slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+import { Despertador } from './avisos.js';
+export { Despertador };
+
 export default {
   async fetch(req, env) {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });
+    /* avisos de verdade: /p/<chave>/(assinar|agenda|teste|estado|sair), sempre POST, só do app */
+    const p = new URL(req.url).pathname.match(/^\/p\/([A-Za-z0-9_-]{32,80})\/(assinar|agenda|teste|estado|sair)$/);
+    if (p) {
+      if (req.method !== 'POST') return resp(req, 'Método não aceito.', 405);
+      const id = env.DESPERTADOR.idFromName(await idDaCaixa('push:' + p[1]));
+      const r = await env.DESPERTADOR.get(id).fetch('https://do/' + p[2], { method: 'POST', body: await req.text() });
+      return new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...cors(req) } });
+    }
     const m = new URL(req.url).pathname.match(/^\/c\/([A-Za-z0-9_-]{32,80})(\/apagar)?\/?$/);
     if (!m) return resp(req, 'Caixa de entrada da Minha Agenda.', 404);
     const caixa = 'b:' + await idDaCaixa(m[1]) + ':';

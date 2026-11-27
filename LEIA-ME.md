@@ -66,6 +66,13 @@ Os dados não vão para esse site: ele só entrega os arquivos do app. Cada celu
 
 ## Avisos
 
+**Com o app fechado (Web Push):** ao ligar os avisos, o celular se inscreve e o app manda ao servidor
+(`caixa/avisos.js`, um Durable Object "despertador" por celular) a lista dos avisos dos próximos 8 dias, a cada
+mudança. O servidor acorda na hora e manda a notificação criptografada. A chave privada VAPID está só nos segredos
+do Cloudflare (`VAPID_JWK`); a pública está em `caixa/vapid-publica.txt` e no `app.js`. No iPhone, só com o app
+aberto pela tela inicial (iOS 16.4 ou mais novo). Publicar o servidor: `cd caixa; npx wrangler deploy`.
+
+
 Ligue em Ajustes › *Ligar avisos*. No iPhone só funcionam com o app aberto pela tela inicial.
 Sem servidor, quem dispara o aviso é o próprio celular, então ele chega com o app aberto ou
 aberto há pouco; com o celular parado por muito tempo pode não chegar.

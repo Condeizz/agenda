@@ -27,7 +27,7 @@ function normaliza(o) {
 function carregar() { try { const o = JSON.parse(localStorage.getItem(CHAVE)); if (o && o.v) return normaliza(o); } catch (e) { } return vazio(); }
 let D = carregar();
 function gravar() { try { localStorage.setItem(CHAVE, JSON.stringify(D)); } catch (e) { toast('Não consegui salvar: o aparelho está sem espaço.'); } }
-function salvar() { gravar(); agendarLembretes(); }
+function salvar() { gravar(); agendarLembretes(); agendarPush(); }
 
 /* ───────── datas ───────── */
 const pad = n => String(n).padStart(2, '0');
@@ -156,6 +156,45 @@ function pedidoPeloEndereco() {
    O atalho da Siri manda a frase para a caixa (caixa/worker.js, no Cloudflare). Ao abrir, o app busca,
    entende a frase (fala.js), anota e apaga da caixa. A chave da caixa é criada aqui, no celular. */
 const CAIXA_URL = 'https://agenda-caixa.henriquejobs0304.workers.dev';
+
+/* ───────── avisos de verdade (Web Push) ─────────
+   O celular se inscreve e o app manda ao servidor (caixa/avisos.js) a lista dos avisos dos próximos 8 dias.
+   O servidor acorda na hora de cada um e manda a notificação, mesmo com o app fechado e o celular bloqueado.
+   Os avisos locais continuam (servem sem internet); a mesma "tag" faz o segundo só substituir o primeiro. */
+const VAPID_PUB = 'BMHviqnUYmXR7EklBHbfayhZ1iZxSlk2ICP9ympQGgTBHtzoHDhfTXveE2AaxoOBaUq2TLvMP3IzY1BMv1Y9cZ8';
+const b64uBytes = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+const pushEnd = acao => CAIXA_URL + '/p/' + D.cfg.pushChave + '/' + acao;
+const postJ = (url, o) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(o) });
+const pushPossivel = () => 'PushManager' in window && 'serviceWorker' in navigator && 'Notification' in window;
+async function ativarPush(silencioso) {
+  try {
+    if (!pushPossivel() || Notification.permission !== 'granted') return false;
+    const reg = await Promise.race([navigator.serviceWorker.ready, new Promise((_, n) => setTimeout(() => n(new Error('sem sw')), 8000))]);
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uBytes(VAPID_PUB) });
+    if (!D.cfg.pushChave) D.cfg.pushChave = novaChave();
+    const r = await postJ(pushEnd('assinar'), { sub: sub.toJSON() });
+    if (!r.ok) throw new Error('servidor ' + r.status);
+    const novo = !D.cfg.pushOn; D.cfg.pushOn = true; gravar(); await sincronizarPush();
+    if (novo && !silencioso) render();
+    return true;
+  } catch (e) { if (!silencioso) toast('Não consegui ligar os avisos com o app fechado agora. Tento de novo quando abrir.'); return false; }
+}
+let tPush = null;
+function agendarPush() { if (!D.cfg.pushOn) return; clearTimeout(tPush); tPush = setTimeout(sincronizarPush, 1500); }
+async function sincronizarPush() {
+  if (!D.cfg.pushOn || !D.cfg.pushChave || !navigator.onLine) return;
+  const h = hoje(), agora = Date.now(), lista = [];
+  for (let i = 0; i < 8; i++) for (const a of avisosDe(soma(h, i))) {
+    if (a.limite < agora || D.avisados[a.chave] || (a.vale && !a.vale())) continue;
+    lista.push({ id: a.chave, quando: a.quando, limite: a.limite, titulo: a.titulo, corpo: a.fixo || a.corpo() });
+  }
+  try { const r = await postJ(pushEnd('agenda'), { avisos: lista }); if (r.ok) { D.cfg.pushSync = Date.now(); gravar(); } } catch (e) { }
+}
+async function testarPush() {
+  try { const r = await postJ(pushEnd('teste'), { segundos: 60 }); if (!r.ok) throw 0; toast('Feche o app e bloqueie o celular: o aviso de teste chega em 1 minuto.', null, 6000); }
+  catch (e) { toast('Sem internet agora para o teste.'); }
+}
 const enderecoCaixa = () => D.cfg.caixaChave ? (D.cfg.caixaUrl || CAIXA_URL) + '/c/' + D.cfg.caixaChave : '';
 function novaChave() { const b = new Uint8Array(30); crypto.getRandomValues(b); return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 let buscandoCaixa = false;
@@ -450,7 +489,9 @@ function mostraBusca() {
 const ehIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent);
 function estadoAvisos() {
   if (!('Notification' in window)) return { txt: ehIOS() ? 'No iPhone, os avisos só funcionam com o app na tela inicial (Compartilhar › Adicionar à Tela de Início). Depois abra por lá e volte aqui.' : 'Este navegador não mostra avisos.', btn: '' };
-  if (Notification.permission === 'granted') return { txt: 'Avisos ligados.', btn: '<button class="btn" data-teste-aviso>Testar um aviso</button>' };
+  if (Notification.permission === 'granted') return D.cfg.pushOn
+    ? { txt: 'Avisos ligados, também com o app fechado e o celular bloqueado.', btn: '<div class="linha-btns"><button class="btn pri" data-teste-push>Testar com o app fechado</button><button class="btn" data-teste-aviso>Testar agora</button></div>' }
+    : { txt: pushPossivel() ? 'Avisos ligados só com o app aberto. Ligando os avisos com o app fechado…' : 'Avisos ligados (com o app aberto ou aberto há pouco).', btn: '<button class="btn" data-teste-aviso>Testar um aviso</button>' };
   if (Notification.permission === 'denied') return { txt: 'Os avisos estão bloqueados nas configurações do navegador para este app.', btn: '' };
   return { txt: 'Ligue para receber os avisos dos compromissos, das tarefas com hora, e o resumo da manhã e da noite.', btn: '<button class="btn pri" data-ligar-aviso>Ligar avisos</button>' };
 }
@@ -465,7 +506,7 @@ function telaAjustes() {
     hora('noite', 'Revisão do fim do dia', 'Se ficou tarefa, oferece passar para amanhã') +
     `<div class="cfg-linha"><label class="cfg-lab"><input type="checkbox" class="sw" data-cfg-auto${D.cfg.autoPassar ? ' checked' : ''}><span class="cfg-txt"><b>Pendências para hoje</b><small>O que ficou para trás vem sozinho para o dia</small></span></label></div>`)
   + grupo('sino', 'Avisos', `<p class="cfg-nota">${esc(a.txt)}</p>${a.btn ? `<div class="cfg-acao">${a.btn}</div>` : ''}
-      <p class="cfg-nota mudo">Sem servidor, quem avisa é o próprio celular: o aviso chega com o app aberto ou aberto há pouco. Com o celular parado por muito tempo, pode não chegar.</p>`)
+      <p class="cfg-nota mudo">${D.cfg.pushOn ? 'Para chegar com o app fechado, o título e a hora dos avisos dos próximos dias ficam guardados no seu servidor (Cloudflare) até o aviso sair.' : 'Sem os avisos com o app fechado, quem avisa é o próprio celular: chega com o app aberto ou aberto há pouco.'}${ehIOS() ? ' No iPhone, só funciona com o app aberto pela tela inicial.' : ''}</p>`)
   + grupo('nuvem', 'Cópia de segurança', `<p class="cfg-nota">Seus dados ficam só neste aparelho. Guarde uma cópia de vez em quando (no e-mail, no Drive ou no WhatsApp para você mesmo).</p>
       ${dias == null ? '<div class="aviso-box">Você ainda não fez nenhuma cópia.</div>' : dias >= 7 ? `<div class="aviso-box">Última cópia há ${plural(dias, 'dia', 'dias')}.</div>` : `<p class="cfg-nota mudo">Última cópia: ${dias === 0 ? 'hoje' : 'há ' + plural(dias, 'dia', 'dias')}.</p>`}
       <div class="linha-btns"><button class="btn pri" data-exportar>Salvar cópia</button><button class="btn" data-importar>Restaurar</button></div>`)
@@ -527,7 +568,11 @@ function desfazivel(msg, fn) {
 }
 function ligarAvisos() {
   if (!('Notification' in window)) { irPara('ajustes'); return; }
-  Notification.requestPermission().then(p => { agendarLembretes(); render(); toast(p === 'granted' ? 'Avisos ligados' : 'Os avisos não foram permitidos neste aparelho.'); });
+  Notification.requestPermission().then(async p => {
+    agendarLembretes(); render();
+    if (p !== 'granted') return toast('Os avisos não foram permitidos neste aparelho.');
+    toast('Avisos ligados'); if (await ativarPush(false)) { render(); toast('Avisos ligados, também com o app fechado'); }
+  });
 }
 function armar(b, texto, acao) {
   b.onclick = () => { if (b.dataset.armado) { fechar(); acao(); return; } b.dataset.armado = 1; const antes = b.textContent; b.textContent = texto; setTimeout(() => { if (b.isConnected) { delete b.dataset.armado; b.textContent = antes; } }, 4000); };
@@ -807,6 +852,7 @@ document.addEventListener('click', ev => {
   if (d.letra) { D.cfg.letra = Number(d.letra); gravar(); aplicaVisual(); return render(); }
   if ('ligarAviso' in d) return ligarAvisos();
   if ('testeAviso' in d) return mostrarAviso('Teste da agenda', 'É assim que o aviso aparece.', 'teste');
+  if ('testePush' in d) return testarPush();
   if ('criarCaixa' in d) { D.cfg.caixaChave = novaChave(); salvar(); render(); toast('Caixa criada. Agora copie o endereço e monte o atalho.'); const p = $('details.passos'); if (p) p.open = true; return; }
   if ('trocarCaixa' in d) { armarSolto(el, 'Toque de novo para trocar', () => { D.cfg.caixaChave = novaChave(); salvar(); render(); toast('Chave trocada. Cole o endereço novo no atalho.'); }); return; }
   if ('copiarCaixa' in d) { navigator.clipboard.writeText(enderecoCaixa()).then(() => toast('Endereço copiado'), () => toast('Não consegui copiar; toque e segure o endereço para copiar.')); return; }
@@ -896,6 +942,7 @@ function avisosDe(s) {
   for (const e of eventosDo(s)) if (e.lembrete != null && e.ini) {
     const ini = quandoMs(s, e.ini);
     L.push({ chave: e.id + '@' + s + 'T' + e.ini, quando: ini - e.lembrete * 60000, limite: ini, titulo: e.titulo,
+      fixo: (e.lembrete >= 1440 ? 'Amanhã às ' : e.lembrete >= 60 ? 'Em ' + e.lembrete / 60 + ' h, às ' : e.lembrete > 0 ? 'Em ' + e.lembrete + ' min, às ' : 'Agora, às ') + e.ini + (e.obs ? '\n' + e.obs : ''),
       corpo: () => { const f = Math.round((ini - Date.now()) / 60000); return (f > 90 ? `${maiusc(relDia(s) || curta(s))} às ${e.ini}` : f > 0 ? `Começa em ${f} min (${e.ini})` : `Começa agora (${e.ini})`) + (e.obs ? '\n' + e.obs : ''); } });
   }
   for (const t of tarefasDo(s)) if (t.hora && t.aviso !== false) {
@@ -979,12 +1026,13 @@ setInterval(() => {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (hoje() !== ultimoDia) { if (dataSel === ultimoDia) dataSel = hoje(); ultimoDia = hoje(); rodarDia(); }
-  agendarLembretes(); buscarCaixa();
+  agendarLembretes(); buscarCaixa(); sincronizarPush();
   if (!$('#gaveta') && aba === 'hoje' && document.activeElement?.id !== 'notas') render();
 });
 
 /* ───────── início ───────── */
 aplicaVisual(); rodarDia(); render(); agendarLembretes(); pedidoPeloEndereco(); buscarCaixa();
+if (pushPossivel() && Notification.permission === 'granted') setTimeout(() => ativarPush(true), 1500);   /* renova a inscrição e a lista a cada abertura */
 addEventListener('online', () => buscarCaixa());
 setInterval(() => { if (document.visibilityState === 'visible') buscarCaixa(); }, 120000);
 /* ───────── atualização sozinha ─────────
