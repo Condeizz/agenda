@@ -263,12 +263,13 @@ nav.abas button[aria-current="page"] svg{background:var(--pri-suave)}
 
 /* gaveta e aviso entram deslizando */
 .veu{-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);animation:aparece .2s ease}
-.gaveta{border-radius:24px 24px 0 0;padding-top:26px;box-shadow:0 -10px 40px rgba(0,0,0,.18);animation:sobe .28s cubic-bezier(.2,.8,.2,1)}
+.gaveta{border-radius:24px 24px 0 0;padding-top:26px;box-shadow:0 -10px 40px rgba(0,0,0,.18);animation:gavetaSobe .42s cubic-bezier(.22,1,.36,1);will-change:transform}
 .gaveta::before{content:"";position:absolute;top:9px;left:50%;width:42px;height:5px;margin-left:-21px;border-radius:99px;background:var(--linha)}
 .gaveta h2{font-size:1.4rem}
 .toast{border-radius:16px;box-shadow:var(--sombra-alta);animation:sobe .25s cubic-bezier(.2,.8,.2,1)}
 @keyframes sobe{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
 @keyframes aparece{from{opacity:0}to{opacity:1}}
+
 /* ───────── tela Hoje ───────── */
 body.na-hoje header.topo h1{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 body.na-hoje header.topo{padding-bottom:0;min-height:calc(8px + env(safe-area-inset-top))}
@@ -408,6 +409,44 @@ button.linha-item:active{background:var(--card2)}
 .gaveta .chips button{background:var(--card);}
 .gaveta .acoes .btn{min-height:52px}
 .aviso-box{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
+/* ───────── movimento ─────────
+   Uma curva só para tudo o que chega (desacelera longo, sem tranco) e uma "mola" para o que volta do toque. */
+:root{--chega:cubic-bezier(.22,1,.36,1);--mola:cubic-bezier(.34,1.56,.64,1)}
+@keyframes gavetaSobe{from{transform:translateY(100%)}to{transform:none}}
+@keyframes gavetaDesce{from{transform:none}to{transform:translateY(100%)}}
+@keyframes some{to{opacity:0}}
+@keyframes toastSai{to{opacity:0;transform:translateY(12px) scale(.97)}}
+@keyframes entraCima{from{opacity:0;transform:translateY(16px)}}
+@keyframes entraDir{from{opacity:0;transform:translateX(36px)}}
+@keyframes entraEsq{from{opacity:0;transform:translateX(-36px)}}
+@keyframes pop{0%{transform:scale(.6)}55%{transform:scale(1.18)}100%{transform:scale(1)}}
+.gaveta.saindo{animation:gavetaDesce .26s cubic-bezier(.4,0,1,1) forwards}
+.veu.saindo{animation:some .26s ease forwards}
+.toast.saindo{animation:toastSai .22s ease forwards}
+.toast{animation:sobe .34s var(--chega)}
+/* a tela que chega: "backwards" (e não "both") para não prender o transform depois — senão o toque perde o encolher */
+#tela.entra-aba>*{animation:entraCima .42s var(--chega) backwards}
+#tela.entra-aba>*:nth-child(2){animation-delay:.03s}#tela.entra-aba>*:nth-child(3){animation-delay:.06s}
+#tela.entra-aba>*:nth-child(4){animation-delay:.09s}#tela.entra-aba>*:nth-child(5){animation-delay:.12s}
+#tela.entra-aba>*:nth-child(6){animation-delay:.15s}#tela.entra-aba>*:nth-child(7){animation-delay:.18s}
+#tela.entra-aba>*:nth-child(n+8){animation-delay:.21s}
+#tela.entra-prox>*:not(.seg):not(.navdata){animation:entraDir .36s var(--chega) backwards}
+#tela.entra-ant>*:not(.seg):not(.navdata){animation:entraEsq .36s var(--chega) backwards}
+#tela.entra-prox .meio,#tela.entra-ant .meio{animation:aparece .3s ease backwards}
+/* o toque: afunda rápido, volta com mola */
+.btn,.item,.dia,.amanha,.card.agora,.num,.atalhos button,.fs-dia,.pilula,.faixa-link,.chips button,.seta,.fab,nav.abas button,.linha-item,.tarefa .corpo{transition:transform .42s var(--mola),background-color .2s,box-shadow .2s,opacity .2s}
+.btn:active,.item:active,.dia:active,.amanha:active,.card.agora:active,.num:active,.atalhos button:active,.fs-dia:active,.pilula:active,.faixa-link:active,.chips button:active,.seta:active,.fab:active,nav.abas button:active,.tarefa .corpo:active{transform:scale(.96);transition-duration:.1s;transition-timing-function:ease-out}
+nav.abas button svg{transition:background-color .25s var(--chega),color .25s}
+nav.abas button[aria-current="page"] svg{animation:pop .4s var(--mola)}
+/* tarefa marcada */
+.chk.pop i{animation:pop .38s var(--mola)}
+.tarefa{transition:background-color .3s ease,box-shadow .3s ease,opacity .3s}
+.tarefa .tt{transition:color .3s}
+.chk i::after{transition:opacity .2s}
+.anel-cheio{transition:stroke-dashoffset .9s var(--chega)}
+.barra i{transition:width .8s var(--chega)}
+.seg button{transition:background-color .25s var(--chega),color .25s,box-shadow .25s}
+input.sw::after,.marca input[type=checkbox]::after{transition:transform .32s var(--mola)}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>

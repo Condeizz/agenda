@@ -208,10 +208,29 @@ function siriHtml() {
 let aba = 'hoje', dataSel = hoje(), modoAgenda = 'dia', textoBusca = '';
 const TITULOS = { hoje: 'Hoje', agenda: 'Agenda', tarefas: 'Tarefas', buscar: 'Buscar', ajustes: 'Ajustes' };
 
-function render() {
+/* movimento: "anim" diz como a tela nova entra ('aba' sobe em cascata; 'prox'/'ant' desliza de lado).
+   Sem "anim" (o app redesenhando depois de uma ação) nada se mexe, só o progresso corre do valor antigo ao novo. */
+const calmo = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function animaProgresso(antes) {
+  if (calmo()) return;
+  for (const e of $$('[data-pid]')) {
+    const de = antes[e.dataset.pid], para = +e.dataset.p;
+    if (de == null || de === para) continue;
+    const aplica = p => { if (e.tagName.toLowerCase() === 'circle') e.style.strokeDashoffset = (+e.dataset.c) * (1 - p); else e.style.width = (p * 100) + '%'; };
+    e.style.transition = 'none'; aplica(de); e.getBoundingClientRect(); e.style.transition = '';
+    requestAnimationFrame(() => requestAnimationFrame(() => aplica(para)));
+  }
+}
+function render(anim) {
+  const antes = {}; $$('[data-pid]').forEach(e => { antes[e.dataset.pid] = +e.dataset.p; });
   $('#titulo').textContent = TITULOS[aba];
   $$('nav.abas button').forEach(b => { if (b.dataset.aba === aba) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   const tela = $('#tela'); tela.innerHTML = tela._html = TELAS[aba]();
+  if (anim && !calmo()) {
+    tela.classList.remove('entra-aba', 'entra-prox', 'entra-ant'); tela.getBoundingClientRect(); tela.classList.add('entra-' + anim);
+    clearTimeout(tela._ta); tela._ta = setTimeout(() => tela.classList.remove('entra-' + anim), 700);
+  }
+  animaProgresso(antes);
   const fab = $('#fab');
   const f = { agenda: '<span>+</span> Compromisso', tarefas: '<span>+</span> Tarefa' }[aba];
   fab.hidden = !f; if (f) fab.innerHTML = f;
@@ -219,7 +238,7 @@ function render() {
   document.body.classList.toggle('na-hoje', aba === 'hoje');
   if (aba === 'buscar') { const i = $('#q'); i.value = textoBusca; mostraBusca(); }
 }
-function irPara(a) { aba = a; if (a !== 'agenda' && a !== 'tarefas') dataSel = hoje(); render(); window.scrollTo(0, 0); }
+function irPara(a) { aba = a; if (a !== 'agenda' && a !== 'tarefas') dataSel = hoje(); render('aba'); window.scrollTo(0, 0); }
 
 /* pedaços de lista */
 function itemEvento(e, now) {
@@ -300,7 +319,7 @@ const ico = (k, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="
 function anelHtml(feitas, total) {
   const r = 30, c = 2 * Math.PI * r, p = total ? feitas / total : 0;
   return `<div class="anel" role="img" aria-label="${feitas} de ${total} tarefas feitas">
-    <svg viewBox="0 0 76 76"><circle cx="38" cy="38" r="${r}" class="anel-fundo"/><circle cx="38" cy="38" r="${r}" class="anel-cheio" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - p)}"/></svg>
+    <svg viewBox="0 0 76 76"><circle cx="38" cy="38" r="${r}" class="anel-fundo"/><circle cx="38" cy="38" r="${r}" class="anel-cheio" data-pid="anel" data-p="${p}" data-c="${c}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - p)}"/></svg>
     <span><b>${total ? Math.round(p * 100) + '%' : '—'}</b><small>${total ? 'feito' : 'sem tarefas'}</small></span></div>`;
 }
 function faixaSemana(s) {
@@ -345,7 +364,7 @@ function telaHoje() {
   h += `<div class="atalhos"><button data-novo-ev>${ico('mais')}<span>Compromisso</span></button><button data-novo-tf>${ico('ok')}<span>Tarefa</span></button><button data-enviar="dia" data-dia="${s}">${ico('env')}<span>Enviar dia</span></button></div>`;
   h += `<h3>${ico('cal', 'h3i')} Linha do dia</h3>` + linhaDoDia(ev, now);
   h += `<h3 id="sec-tarefas">${ico('ok', 'h3i')} Tarefas de hoje${ts.length ? ` <span class="cont">${nf}/${ts.length}</span>` : ''}</h3>`
-    + (ts.length ? `<div class="barra" aria-hidden="true"><i style="width:${Math.round(nf / ts.length * 100)}%"></i></div><div class="lista">${ts.map(t => itemTarefa(t, s)).join('')}</div>` : `<div class="vazio-vis peq">${ico('ok', 'grande')}<p>Nenhuma tarefa para hoje.</p></div>`) + rapido(s, 'Nova tarefa para hoje');
+    + (ts.length ? `<div class="barra" aria-hidden="true"><i data-pid="barra-hoje" data-p="${nf / ts.length}" style="width:${Math.round(nf / ts.length * 100)}%"></i></div><div class="lista">${ts.map(t => itemTarefa(t, s)).join('')}</div>` : `<div class="vazio-vis peq">${ico('ok', 'grande')}<p>Nenhuma tarefa para hoje.</p></div>`) + rapido(s, 'Nova tarefa para hoje');
   if (pend.length) h += `<h3 id="sec-pend">${ico('rel', 'h3i')} Ficou pendente</h3>${pend.map(itemPendente).join('')}`;
   h += amanhaHtml(s);
   h += `<h3>Anotações do dia</h3><textarea class="notas" id="notas" placeholder="Escreva aqui o que precisar lembrar hoje…">${esc(D.notas[s] || '')}</textarea><p class="salvo" id="salvo"></p>`;
@@ -395,7 +414,7 @@ const diasTexto = ds => !ds || !ds.length ? 'Só quando você puser' : ds.length
 function telaTarefas() {
   const ts = tarefasDo(dataSel), nf = ts.filter(t => feita(t, dataSel)).length;
   let h = navData(1);
-  if (ts.length) h += `<div class="resumo-tf"><div><b>${nf} de ${ts.length}</b><span>${nf === ts.length ? 'tudo feito!' : plural(ts.length - nf, 'falta', 'faltam')}</span></div><div class="barra"><i style="width:${Math.round(nf / ts.length * 100)}%"></i></div></div>`;
+  if (ts.length) h += `<div class="resumo-tf"><div><b>${nf} de ${ts.length}</b><span>${nf === ts.length ? 'tudo feito!' : plural(ts.length - nf, 'falta', 'faltam')}</span></div><div class="barra"><i data-pid="barra-tf-${dataSel}" data-p="${nf / ts.length}" style="width:${Math.round(nf / ts.length * 100)}%"></i></div></div>`;
   h += ts.length ? `<div class="lista">${ts.map(t => itemTarefa(t, dataSel)).join('')}</div>` : `<div class="vazio-vis peq">${ico('ok', 'grande')}<p>Nenhuma tarefa neste dia.</p></div>`;
   h += rapido(dataSel, dataSel === hoje() ? 'Nova tarefa para hoje' : 'Nova tarefa para este dia');
   if (dataSel === hoje()) { const p = pendentes(dataSel); if (p.length) h += `<h3>${ico('rel', 'h3i')} Ficou pendente</h3>${p.map(itemPendente).join('')}`; }
@@ -472,15 +491,34 @@ function abrir(html, ligar) {
   g.innerHTML = html; veu.onclick = fechar;
   document.body.append(veu, g);
   if (!tinha) history.pushState({ gaveta: 1 }, '');   /* o "voltar" do Android fecha a gaveta, não sai do app */
-  ligar(g);
+  ligar(g); ligaArrasto(g);
   const pri = g.querySelector('input:not([type=checkbox]),select,textarea'); if (pri && !pri.value) setTimeout(() => pri.focus(), 50);
 }
-function tiraGaveta() { $('#veu')?.remove(); $('#gaveta')?.remove(); }
+function tiraGaveta(animar) {
+  const v = $('#veu'), g = $('#gaveta');
+  if (!animar || calmo()) { v?.remove(); g?.remove(); return; }
+  /* sai deslizando; troca o id na hora, para uma janela nova poder abrir enquanto esta ainda desce */
+  if (g) g.querySelectorAll('[id]').forEach(x => x.removeAttribute('id'));   /* os campos da janela que sai não podem ter o mesmo nome dos da que chega */
+  for (const x of [v, g]) if (x) { x.id += '-saindo'; x.style.pointerEvents = 'none'; if (x === g && x.style.transform) x.style.opacity = '0'; else x.classList.add('saindo'); setTimeout(() => x.remove(), 280); }
+}
+/* arrastar a janela para baixo (pela parte de cima) fecha, como no iPhone */
+function ligaArrasto(g) {
+  let y0 = null, dy = 0, t0 = 0;
+  g.addEventListener('touchstart', e => { const yRel = e.touches[0].clientY - g.getBoundingClientRect().top; if (g.scrollTop > 0 || yRel > 80 || e.touches.length > 1) { y0 = null; return; } y0 = e.touches[0].clientY; dy = 0; t0 = Date.now(); }, { passive: true });
+  g.addEventListener('touchmove', e => { if (y0 == null) return; dy = Math.max(0, e.touches[0].clientY - y0); if (dy < 4) return; g.style.transition = 'none'; g.style.transform = 'translateY(' + dy + 'px)'; const v = $('#veu'); if (v) v.style.opacity = String(1 - Math.min(.9, dy / 500)); }, { passive: true });
+  g.addEventListener('touchend', () => {
+    if (y0 == null) return; y0 = null; if (dy < 4) return;
+    const rapido = dy / Math.max(1, Date.now() - t0) > .6;
+    g.style.transition = 'transform .28s cubic-bezier(.22,1,.36,1), opacity .28s';
+    if (dy > 120 || (rapido && dy > 40)) { g.style.transform = 'translateY(105%)'; fechar(); }
+    else { g.style.transform = ''; const v = $('#veu'); if (v) { v.style.transition = 'opacity .28s'; v.style.opacity = ''; } }
+  });
+}
 /* Ao fechar pelo app, voltamos uma entrada do histórico; esse "voltar" chega depois, de forma assíncrona,
    e não pode fechar uma janela aberta logo em seguida. Por isso ele é marcado para ser ignorado. */
 let ignorarVolta = 0;
-function fechar() { if (!$('#gaveta')) return; tiraGaveta(); if (history.state && history.state.gaveta) { ignorarVolta++; history.back(); } }
-addEventListener('popstate', () => { if (ignorarVolta) { ignorarVolta--; return; } tiraGaveta(); });
+function fechar() { if (!$('#gaveta')) return; tiraGaveta(true); if (history.state && history.state.gaveta) { ignorarVolta++; history.back(); } }
+addEventListener('popstate', () => { if (ignorarVolta) { ignorarVolta--; return; } tiraGaveta(true); });
 /* toda ação que apaga ou some com algo pode ser desfeita por alguns segundos */
 function desfazivel(msg, fn) {
   const antes = JSON.stringify(D);
@@ -745,16 +783,21 @@ document.addEventListener('click', ev => {
   if ('novoTf' in d) return formTarefa(null, hoje());
   if (d.ev) return formEvento(d.ev, d.dia);
   if (d.tf) return formTarefa(d.tf);
-  if (d.chk) { marcar(d.chk, d.dia, el.getAttribute('aria-pressed') !== 'true' ? 1 : 0); return render(); }
+  if (d.chk) {
+    const v = el.getAttribute('aria-pressed') !== 'true'; marcar(d.chk, d.dia, v ? 1 : 0);
+    el.setAttribute('aria-pressed', v); el.closest('.tarefa')?.classList.toggle('feita', v); el.classList.remove('pop'); el.getBoundingClientRect(); el.classList.add('pop');
+    if (navigator.vibrate && v) navigator.vibrate(12);
+    clearTimeout(window._tchk); window._tchk = setTimeout(() => { if (!$('#gaveta')) render(); }, calmo() ? 0 : 380); return;
+  }
   if (d.pfeita) return desfazivel('Marcada como feita', () => marcarSem(d.pfeita, d.dia, 1));
   if (d.ppula) return desfazivel('Deixada pra lá', () => marcarSem(d.ppula, d.dia, 'pulada'));
   if (d.phoje) return desfazivel('Passou para hoje', () => { const t = D.tarefas.find(x => x.id === d.phoje); if (t) t.data = hoje(); });
   if (d.passar) return desfazivel('Passou para amanhã', () => passarParaAmanha(d.passar));
-  if (d.mover) { dataSel = soma(dataSel, Number(d.mover)); return render(); }
-  if ('irhoje' in d) { dataSel = hoje(); return render(); }
-  if (d.modo) { modoAgenda = d.modo; return render(); }
-  if (d.diaSel) { dataSel = d.diaSel; modoAgenda = 'dia'; aba = 'agenda'; render(); return scrollTo(0, 0); }
-  if ('vertarefas' in d) { aba = 'tarefas'; return render(); }
+  if (d.mover) { dataSel = soma(dataSel, Number(d.mover)); return render(Number(d.mover) > 0 ? 'prox' : 'ant'); }
+  if ('irhoje' in d) { const de = dataSel; dataSel = hoje(); return render(de === dataSel ? null : de < dataSel ? 'prox' : 'ant'); }
+  if (d.modo) { if (modoAgenda === d.modo) return; modoAgenda = d.modo; return render('aba'); }
+  if (d.diaSel) { dataSel = d.diaSel; modoAgenda = 'dia'; aba = 'agenda'; render('aba'); return scrollTo(0, 0); }
+  if ('vertarefas' in d) { aba = 'tarefas'; render('aba'); return scrollTo(0, 0); }
   if (d.rot) return formRotina(d.rot);
   if ('novaRot' in d) return formRotina(null);
   if (d.porRot) { const r = D.rotinas.find(x => x.id === d.porRot); if (r) { aplicarRotina(r, dataSel); salvar(); render(); toast(`${plural(r.itens.length, 'tarefa entrou', 'tarefas entraram')} no dia`); } return; }
@@ -769,7 +812,7 @@ document.addEventListener('click', ev => {
   if ('copiarCaixa' in d) { navigator.clipboard.writeText(enderecoCaixa()).then(() => toast('Endereço copiado'), () => toast('Não consegui copiar; toque e segure o endereço para copiar.')); return; }
   if ('buscarCaixa' in d) return buscarCaixa(true);
   if ('procurarVersao' in d) return procurarVersao(true);
-  if ('irAgenda' in d) { aba = 'agenda'; modoAgenda = 'dia'; dataSel = hoje(); render(); return scrollTo(0, 0); }
+  if ('irAgenda' in d) { aba = 'agenda'; modoAgenda = 'dia'; dataSel = hoje(); render('aba'); return scrollTo(0, 0); }
   if ('irTarefas' in d) { const a = $('#sec-tarefas'); return a && a.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
   if ('irPend' in d) { const a = $('#sec-pend') || $('#sec-tarefas'); return a && a.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
   if ('exportar' in d) return exportar();
@@ -800,7 +843,7 @@ document.addEventListener('touchstart', e => { toque0 = (aba === 'agenda' || aba
 document.addEventListener('touchend', e => {
   if (!toque0) return; const t = e.changedTouches[0], dx = t.clientX - toque0.x, dy = t.clientY - toque0.y; toque0 = null;
   if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
-  dataSel = soma(dataSel, (dx < 0 ? 1 : -1) * (aba === 'agenda' && modoAgenda === 'semana' ? 7 : 1)); render();
+  dataSel = soma(dataSel, (dx < 0 ? 1 : -1) * (aba === 'agenda' && modoAgenda === 'semana' ? 7 : 1)); render(dx < 0 ? 'prox' : 'ant');
 }, { passive: true });
 document.addEventListener('change', ev => {
   const t = ev.target;
@@ -917,7 +960,8 @@ function toast(t, botao, ms) {
   const el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status');
   const s = document.createElement('span'); s.textContent = t; el.append(s);
   if (botao) { const b = document.createElement('button'); b.textContent = botao.rot; b.onclick = () => { el.remove(); botao.acao(); }; el.append(b); }
-  document.body.append(el); setTimeout(() => el.remove(), ms || 2600);
+  document.body.append(el);
+  setTimeout(() => { if (!el.isConnected) return; if (calmo()) return el.remove(); el.classList.add('saindo'); setTimeout(() => el.remove(), 240); }, ms || 2600);
 }
 
 /* a tela se atualiza sozinha a cada minuto (o "agora" anda), sem atrapalhar quem está digitando */
