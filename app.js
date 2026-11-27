@@ -49,7 +49,7 @@ const quandoMs = (s, h) => { const d = deIso(s); const [a, b] = h.split(':').map
 function relDia(s) { const h = hoje(); return s === h ? 'hoje' : s === soma(h, 1) ? 'amanhã' : s === soma(h, -1) ? 'ontem' : ''; }
 function proxHora() { const d = new Date(); return pad(Math.min(23, d.getHours() + 1)) + ':00'; }
 const plural = (n, um, varios) => n + ' ' + (n === 1 ? um : varios);
-function saudacao() { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; }
+function saudacao() { const h = new Date().getHours(); return h < 5 ? 'Boa noite' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; }
 function inicioSemana(s) { const d = dow(s); return soma(s, d === 0 ? -6 : 1 - d); }
 
 /* ───────── repetição (compromissos e tarefas usam a mesma regra) ───────── */
@@ -216,6 +216,7 @@ function render() {
   const f = { agenda: '<span>+</span> Compromisso', tarefas: '<span>+</span> Tarefa' }[aba];
   fab.hidden = !f; if (f) fab.innerHTML = f;
   document.body.classList.toggle('com-fab', !!f);
+  document.body.classList.toggle('na-hoje', aba === 'hoje');
   if (aba === 'buscar') { const i = $('#q'); i.value = textoBusca; mostraBusca(); }
 }
 function irPara(a) { aba = a; if (a !== 'agenda' && a !== 'tarefas') dataSel = hoje(); render(); window.scrollTo(0, 0); }
@@ -277,19 +278,66 @@ function revisaoHtml(s) {
   return `<div class="card pend"><p><b>Fim do dia</b></p><p class="mudo">${plural(n, 'tarefa ficou', 'tarefas ficaram')} por fazer hoje.</p>
     <div class="acoes"><button class="btn peq pri" data-passar="${s}">Passar para amanhã</button></div></div>`;
 }
+/* ícones de traço, do mesmo desenho da barra de baixo */
+const IC = {
+  cal: '<path d="M3 10h18M8 3v4M16 3v4"/><rect x="3" y="5" width="18" height="16" rx="2.5"/>',
+  ok: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.6 2.6L16 9.8"/>',
+  rel: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  mais: '<path d="M12 5v14M5 12h14"/>',
+  env: '<path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/>',
+  rot: '<path d="M4 6h11M4 12h11M4 18h7"/><path d="M17 15l2 2 3-4"/>',
+  sol: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  lua: '<path d="M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5z"/>'
+};
+const ico = (k, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`;
+function anelHtml(feitas, total) {
+  const r = 30, c = 2 * Math.PI * r, p = total ? feitas / total : 0;
+  return `<div class="anel" role="img" aria-label="${feitas} de ${total} tarefas feitas">
+    <svg viewBox="0 0 76 76"><circle cx="38" cy="38" r="${r}" class="anel-fundo"/><circle cx="38" cy="38" r="${r}" class="anel-cheio" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - p)}"/></svg>
+    <span><b>${total ? Math.round(p * 100) + '%' : '—'}</b><small>${total ? 'feito' : 'sem tarefas'}</small></span></div>`;
+}
+function faixaSemana(s) {
+  const ini = inicioSemana(s);
+  let h = '<div class="faixa-sem" aria-label="Esta semana">';
+  for (let i = 0; i < 7; i++) {
+    const d = soma(ini, i), n = eventosDo(d).length, nt = tarefasDo(d).filter(t => !feita(t, d)).length;
+    h += `<button class="fs-dia${d === s ? ' hj' : ''}${d < s ? ' ant' : ''}" data-dia-sel="${d}" aria-label="${esc(nomeData(d))}: ${plural(n, 'compromisso', 'compromissos')}">
+      <small>${DIAS_CURTO[dow(d)]}</small><b>${deIso(d).getDate()}</b><i>${'<em></em>'.repeat(Math.min(3, n))}${!n && nt ? '<em class="t"></em>' : ''}</i></button>`;
+  }
+  return h + '</div>';
+}
+function linhaDoDia(ev, now) {
+  if (!ev.length) return `<div class="vazio-vis">${ico('sol', 'grande')}<p>Agenda livre hoje.</p><button class="btn peq" data-novo-ev>Marcar compromisso</button></div>`;
+  const todos = ev.filter(e => !comHora(e)), tm = ev.filter(comHora);
+  let h = '<div class="linha-tempo">', marcou = false;
+  for (const e of todos) h += `<div class="tl-it">${itemEvento(e, now)}</div>`;
+  tm.forEach((e, i) => {
+    if (!marcou && minDe(e.ini) > now && (i > 0 || todos.length)) { h += `<div class="tl-agora"><span>Agora · ${hm(now)}</span></div>`; marcou = true; }
+    h += `<div class="tl-it${now >= fimMin(e) ? ' passou' : ''}">${itemEvento(e, now)}</div>`;
+  });
+  if (!marcou && tm.length && now >= fimMin(tm[tm.length - 1])) h += `<div class="tl-agora"><span>Agora · ${hm(now)}</span></div>`;
+  return h + '</div>';
+}
 function telaHoje() {
   const s = hoje(), ev = eventosDo(s), ts = tarefasDo(s), pend = pendentes(s), now = agoraMin();
-  const nf = ts.filter(t => feita(t, s)).length, faltam = ev.filter(e => fimMin(e) > now);
-  let h = `<section style="margin:4px 0 12px"><p class="sauda">${saudacao()}</p><h2>${esc(nomeData(s, true))}</h2>
-    <p class="mudo">${plural(faltam.length, 'compromisso pela frente', 'compromissos pela frente')} · ${ts.length ? `${nf} de ${plural(ts.length, 'tarefa feita', 'tarefas feitas')}` : 'nenhuma tarefa'}</p>
-    <button class="lnk" data-enviar="dia" data-dia="${s}">Enviar o resumo do dia</button></section>`;
+  const nf = ts.filter(t => feita(t, s)).length, faltam = ev.filter(e => fimMin(e) > now), aFazer = ts.length - nf;
+  const noite = new Date().getHours() >= 18 || new Date().getHours() < 5;
+  let h = `<section class="hero"><div class="hero-txt"><p class="sauda">${ico(noite ? 'lua' : 'sol', 'peq')} ${saudacao()}</p>
+      <h2>${esc(maiusc(DIAS_LONGO[dow(s)]))}</h2><p class="hero-data">${deIso(s).getDate()} de ${MESES[deIso(s).getMonth()]}</p></div>
+      ${anelHtml(nf, ts.length)}</section>`;
+  h += faixaSemana(s);
+  h += `<div class="numeros">
+      <button class="num" data-ir-agenda>${ico('cal')}<b>${faltam.length}</b><small>na agenda</small></button>
+      <button class="num" data-ir-tarefas>${ico('ok')}<b>${aFazer}</b><small>a fazer</small></button>
+      <button class="num${pend.length ? ' alerta' : ''}" data-ir-pend>${ico('rel')}<b>${pend.length}</b><small>${pend.length === 1 ? 'pendente' : 'pendentes'}</small></button></div>`;
   h += cartaoAgora(ev, now) + revisaoHtml(s) + copiaHtml();
   if (D.eventos.some(e => e.lembrete != null) && 'Notification' in window && Notification.permission === 'default')
     h += `<div class="aviso-box">Os avisos estão desligados. <button class="btn peq" data-ligar-aviso style="margin-top:6px">Ligar avisos</button></div>`;
-  h += `<div class="linha-btns" style="margin-bottom:6px"><button class="btn" data-novo-ev>+ Compromisso</button><button class="btn" data-novo-tf>+ Tarefa</button></div>`;
-  h += `<h3>Compromissos de hoje</h3>` + (ev.length ? `<div class="lista">${ev.map(e => itemEvento(e, now)).join('')}</div>` : '<p class="vazio">Nada marcado para hoje.</p>');
-  h += `<h3>Tarefas de hoje</h3>` + (ts.length ? `<div class="lista">${ts.map(t => itemTarefa(t, s)).join('')}</div>` : '<p class="vazio">Nenhuma tarefa para hoje.</p>') + rapido(s, 'Nova tarefa para hoje');
-  if (pend.length) h += `<h3>Ficou pendente</h3>${pend.map(itemPendente).join('')}`;
+  h += `<div class="atalhos"><button data-novo-ev>${ico('mais')}<span>Compromisso</span></button><button data-novo-tf>${ico('ok')}<span>Tarefa</span></button><button data-enviar="dia" data-dia="${s}">${ico('env')}<span>Enviar dia</span></button></div>`;
+  h += `<h3>${ico('cal', 'h3i')} Linha do dia</h3>` + linhaDoDia(ev, now);
+  h += `<h3 id="sec-tarefas">${ico('ok', 'h3i')} Tarefas de hoje${ts.length ? ` <span class="cont">${nf}/${ts.length}</span>` : ''}</h3>`
+    + (ts.length ? `<div class="barra" aria-hidden="true"><i style="width:${Math.round(nf / ts.length * 100)}%"></i></div><div class="lista">${ts.map(t => itemTarefa(t, s)).join('')}</div>` : `<div class="vazio-vis peq">${ico('ok', 'grande')}<p>Nenhuma tarefa para hoje.</p></div>`) + rapido(s, 'Nova tarefa para hoje');
+  if (pend.length) h += `<h3 id="sec-pend">${ico('rel', 'h3i')} Ficou pendente</h3>${pend.map(itemPendente).join('')}`;
   h += amanhaHtml(s);
   h += `<h3>Anotações do dia</h3><textarea class="notas" id="notas" placeholder="Escreva aqui o que precisar lembrar hoje…">${esc(D.notas[s] || '')}</textarea><p class="salvo" id="salvo"></p>`;
   return h;
@@ -704,6 +752,9 @@ document.addEventListener('click', ev => {
   if ('copiarCaixa' in d) { navigator.clipboard.writeText(enderecoCaixa()).then(() => toast('Endereço copiado'), () => toast('Não consegui copiar; toque e segure o endereço para copiar.')); return; }
   if ('buscarCaixa' in d) return buscarCaixa(true);
   if ('procurarVersao' in d) return procurarVersao(true);
+  if ('irAgenda' in d) { aba = 'agenda'; modoAgenda = 'dia'; dataSel = hoje(); render(); return scrollTo(0, 0); }
+  if ('irTarefas' in d) { const a = $('#sec-tarefas'); return a && a.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  if ('irPend' in d) { const a = $('#sec-pend') || $('#sec-tarefas'); return a && a.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
   if ('exportar' in d) return exportar();
   if ('importar' in d) return $('#arq').click();
   if ('importarIcs' in d) { let i = $('#arq-ics'); if (!i) { i = document.createElement('input'); i.type = 'file'; i.id = 'arq-ics'; i.accept = '.ics,text/calendar'; i.hidden = true; document.body.append(i); } return i.click(); }
