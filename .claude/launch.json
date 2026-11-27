@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "agenda", "runtimeExecutable": "node", "runtimeArgs": ["C:/Users/henri/projetos/agenda/ferramentas/servidor.mjs"], "port": 4400 }
+  ]
+}
