@@ -31,7 +31,7 @@ tudo fica guardado no próprio aparelho.
   (para um atalho de voz no Android, com o app instalado):
   `https://condeizz.github.io/agenda/?tarefa=Texto&hora=17:30` (ou `?compromisso=Texto&dia=amanha&hora=14:00`).
 - **Anotar pela Siri** (Ajustes › Anotar pela Siri): "Ei Siri, anotar na agenda" › fale a frase. O atalho manda
-  para a caixa de entrada (`caixa/worker.js`, Cloudflare Worker + KV, conta do Henrique) e o app, ao abrir, entende
+  para a caixa de entrada (`caixa/worker.js`, Cloudflare Worker + KV) e o app, ao abrir, entende
   a frase (`fala.js`), anota e esvazia a caixa. A chave é criada no celular; a caixa guarda no máximo 30 dias.
   Leva cerca de 1 minuto para uma frase nova aparecer (o KV demora a listar). Publicar a caixa: `cd caixa; npx wrangler deploy`.
 
