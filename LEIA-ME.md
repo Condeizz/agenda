@@ -78,5 +78,8 @@ Para voltar: Ajustes › *Restaurar cópia*. O app avisa quando a última cópia
 
 ## Ao mudar algum arquivo
 
-Suba a `VERSAO` em `sw.js` (ex.: `agenda-v4`); o celular pega a versão nova na abertura seguinte.
+Antes de publicar, rode `node ferramentas/versao.mjs`: ele calcula a versão pelo conteúdo dos arquivos e grava no
+`sw.js`. Ao abrir com internet, o celular baixa a versão nova inteira e o app recarrega na hora (se houver um
+formulário aberto, ele mostra "Atualizar" em vez de interromper). No iPhone, o ícone e o nome na tela inicial
+não se atualizam nunca (limite do iOS): para trocá-los, remova e adicione o app de novo.
 Ícones: desenho em `icones/icone.svg`; os PNG saem com `node ferramentas/icones.mjs` (usa o Edge do Windows).

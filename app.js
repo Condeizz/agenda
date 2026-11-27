@@ -395,7 +395,9 @@ function telaAjustes() {
     <div class="opcoes">${op('tema', 'auto', 'Automático')}${op('tema', 'claro', 'Claro')}${op('tema', 'escuro', 'Escuro')}</div>
     <p class="mudo" style="margin:12px 0 8px">Tamanho da letra</p>
     <div class="opcoes">${op('letra', 100, 'Grande')}${op('letra', 112, 'Maior')}${op('letra', 125, 'Enorme')}</div></div>
-  <div class="card"><h2>Neste aparelho</h2><p class="mudo">${plural(D.eventos.length, 'compromisso', 'compromissos')} · ${plural(D.tarefas.length, 'tarefa', 'tarefas')} · ${plural(D.rotinas.length, 'rotina', 'rotinas')}</p></div>
+  <div class="card"><h2>Neste aparelho</h2><p class="mudo">${plural(D.eventos.length, 'compromisso', 'compromissos')} · ${plural(D.tarefas.length, 'tarefa', 'tarefas')} · ${plural(D.rotinas.length, 'rotina', 'rotinas')}</p>
+    <p class="mudo" style="margin-top:6px">Versão do app: <span id="versao">${esc((versaoAtual || '').replace('agenda-', '') || '…')}</span>. Ela se atualiza sozinha ao abrir com internet.</p>
+    <button class="lnk" data-procurar-versao>Procurar atualização agora</button></div>
   <input type="file" id="arq" accept="application/json,.json" hidden><input type="file" id="arq-ics" accept=".ics,text/calendar" hidden>`;
 }
 
@@ -701,6 +703,7 @@ document.addEventListener('click', ev => {
   if ('trocarCaixa' in d) { armarSolto(el, 'Toque de novo para trocar', () => { D.cfg.caixaChave = novaChave(); salvar(); render(); toast('Chave trocada. Cole o endereço novo no atalho.'); }); return; }
   if ('copiarCaixa' in d) { navigator.clipboard.writeText(enderecoCaixa()).then(() => toast('Endereço copiado'), () => toast('Não consegui copiar; toque e segure o endereço para copiar.')); return; }
   if ('buscarCaixa' in d) return buscarCaixa(true);
+  if ('procurarVersao' in d) return procurarVersao(true);
   if ('exportar' in d) return exportar();
   if ('importar' in d) return $('#arq').click();
   if ('importarIcs' in d) { let i = $('#arq-ics'); if (!i) { i = document.createElement('input'); i.type = 'file'; i.id = 'arq-ics'; i.accept = '.ics,text/calendar'; i.hidden = true; document.body.append(i); } return i.click(); }
@@ -872,7 +875,32 @@ document.addEventListener('visibilitychange', () => {
 aplicaVisual(); rodarDia(); render(); agendarLembretes(); pedidoPeloEndereco(); buscarCaixa();
 addEventListener('online', () => buscarCaixa());
 setInterval(() => { if (document.visibilityState === 'visible') buscarCaixa(); }, 120000);
-if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
-  navigator.serviceWorker.register('sw.js').catch(() => { });
+/* ───────── atualização sozinha ─────────
+   A cada abertura (e ao voltar para o app) o navegador confere o sw.js. Se a versão mudou, a nova é baixada
+   inteira por trás e assume; aqui o app recarrega na hora — só não interrompe quem está num formulário ou digitando:
+   nesse caso a troca espera o app ir para o fundo, ou o toque em "Atualizar". */
+let swReg = null, versaoAtual = '';
+const ocupado = () => !!$('#gaveta') || (document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
+function recarregarNovo() { try { sessionStorage.setItem('agenda.atualizado', '1'); } catch (e) { } location.reload(); }
+function procurarVersao(avisar) {
+  if (!swReg) { if (avisar) toast('Atualização automática indisponível neste navegador.'); return; }
+  swReg.update().then(() => { if (avisar && !swReg.installing && !swReg.waiting) toast('Você já está na versão mais nova.'); }).catch(() => { if (avisar) toast('Sem internet agora.'); });
 }
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  const jaTinha = !!navigator.serviceWorker.controller;   /* na primeira instalação não há o que trocar */
+  let trocando = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!jaTinha || trocando) return; trocando = true;
+    if (!ocupado()) return recarregarNovo();
+    toast('Versão nova do app pronta', { rot: 'Atualizar', acao: recarregarNovo }, 15000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') recarregarNovo(); }, { once: true });
+  });
+  navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.versao) { versaoAtual = e.data.versao; const v = $('#versao'); if (v) v.textContent = versaoAtual.replace('agenda-', ''); } });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => {
+    swReg = r; r.update().catch(() => { });
+    navigator.serviceWorker.ready.then(() => navigator.serviceWorker.controller && navigator.serviceWorker.controller.postMessage('versao'));
+  }).catch(() => { });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && swReg) swReg.update().catch(() => { }); });
+}
+try { if (sessionStorage.getItem('agenda.atualizado')) { sessionStorage.removeItem('agenda.atualizado'); setTimeout(() => toast('App atualizado para a versão mais nova'), 500); } } catch (e) { }
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
